@@ -2,17 +2,21 @@ use std::fmt::Display;
 
 fn main() {
     let mut chunk = Chunk::new();
-    let constant = chunk.add_constant(Value(1.2));
-    chunk.write_op_code(OpCode::Constant);
-    chunk.write_addr(constant as u8);
-    chunk.write_op_code(OpCode::Return);
+    chunk.write_instruction(Instruction::Constant(1.2), 125);
+    chunk.write_instruction(Instruction::Constant(35.0), 125);
+    chunk.write_instruction(Instruction::Return, 128);
     chunk.disassemble("Test chunk");
+}
+
+enum Instruction {
+    Constant(f64),
+    Return
 }
 
 #[derive(Debug, Clone)]
 #[repr(u8)]
 enum CodeByte {
-    Addr(u8),
+    Literal(u8),
     OpCode(OpCode)
 }
 
@@ -32,24 +36,30 @@ impl Display for OpCode {
 #[derive(Debug)]
 struct Chunk {
     code: Vec<CodeByte>,
+    line_numbers: Vec<i32>,
     values: Vec<Value>
 }
 
 impl Chunk {
     fn new() -> Self { 
-        Self { code: Vec::new(), values: Vec::new() }
+        Self { code: Vec::new(), line_numbers: Vec::new(), values: Vec::new() }
     }
 
-    fn write_op_code(&mut self, op_code: OpCode)  {
-        self.write_code(CodeByte::OpCode(op_code))
+    fn write_instruction(&mut self, instruction: Instruction, line_number: i32)  {
+        match instruction {
+            Instruction::Constant(const_value) => {
+                let const_index = self.add_constant(Value(const_value));
+                self.write_code(CodeByte::OpCode(OpCode::Constant), line_number);
+                self.write_code(CodeByte::Literal(const_index), line_number);
+            },
+            Instruction::Return => self.write_code(CodeByte::OpCode(OpCode::Return), line_number),
+        }
+        
     }
 
-    fn write_addr(&mut self, addr: u8)  {
-        self.write_code(CodeByte::Addr(addr))
-    }
-
-    fn write_code(&mut self, code_byte: CodeByte)  {
+    fn write_code(&mut self, code_byte: CodeByte, line_number: i32)  {
         self.code.push(code_byte);
+        self.line_numbers.push(line_number);
     }
 
     fn add_constant(&mut self, value: Value) -> u8 {
@@ -71,6 +81,15 @@ impl Chunk {
 
     fn disassemble_instruction(&self, offset: usize) -> usize {
         print!("{:04} ", offset);
+
+        let prev_line_number = if offset > 0 { Some(self.line_numbers[offset - 1]) } else { None };
+        let line_number = self.line_numbers[offset];
+        let same_line_no_as_previous = prev_line_number.is_some() && line_number == prev_line_number.unwrap();
+        if same_line_no_as_previous {
+            print!("   | ");
+        } else {
+            print!("{:4} ", line_number);
+        }
 
         let instruction = &self.code[offset];
         match instruction {
@@ -94,7 +113,7 @@ impl Chunk {
 
     fn constant_instruction(&self, offset: usize) -> usize {
         let constant_offset = offset + 1;
-        if let CodeByte::Addr(constant) = self.code[constant_offset] {
+        if let CodeByte::Literal(constant) = self.code[constant_offset] {
             println!("{} {:04} '{}'", OpCode::Constant, constant, self.values[constant as usize]);
         }
         else {
