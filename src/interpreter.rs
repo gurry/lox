@@ -1,5 +1,47 @@
 use std::fmt::Display;
 
+type Result<T> = std::result::Result<T, InterpreterError>;
+
+#[derive(Debug)]
+pub struct Interpreter {
+    chunk: Chunk,
+    ip: usize
+}
+
+impl Interpreter {
+    pub fn new(chunk: Chunk) -> Self {
+        Self { chunk, ip: 0 }
+    }
+
+    pub fn run(&self) -> Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub enum InterpreterErrorType {
+    ComplileError,
+    RuntimeError
+}
+
+#[derive(Debug)]
+pub struct InterpreterError {
+    msg: String,
+    error_type: InterpreterErrorType
+}
+
+impl Display for InterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}: {}", self.error_type, self.msg)
+    }
+}
+
+impl InterpreterError {
+    pub fn new<M: Into<String>>(msg: M, error_type: InterpreterErrorType) -> Self { 
+        Self { msg: msg.into(), error_type }
+    }
+    
+}
 
 #[derive(Debug)]
 pub struct Chunk {
@@ -92,6 +134,7 @@ impl Chunk {
     }
 }
 
+#[derive(Debug)]
 pub enum Instruction {
     Constant(f64),
     Return
