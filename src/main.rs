@@ -16,7 +16,8 @@ fn main() -> anyhow::Result<()> {
     writer.write_const(35.0, 125);
     writer.write_return(128);
 
-    Disassembler::disassemble(&chunk,"Test chunk")
+    let mut disassembler = Disassembler::new();
+    disassembler.disassemble(&chunk,"Test chunk")
         .with_context(|| "Disassembler failed")?;
 
     let mut interpreter = Interpreter::new(chunk);
