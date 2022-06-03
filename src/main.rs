@@ -1,7 +1,7 @@
 use anyhow::Context;
 use chunk::Chunk;
 use disassembler::Disassembler;
-use instruction::{InstructionWriter, Instruction};
+use instruction::InstructionWriter;
 use interpreter::Interpreter;
 
 mod interpreter;
@@ -12,9 +12,9 @@ mod instruction;
 fn main() -> anyhow::Result<()> {
     let mut chunk = Chunk::new();
     let mut writer = InstructionWriter::new(&mut chunk);
-    writer.write(Instruction::Constant(1.2), 125);
-    writer.write(Instruction::Constant(35.0), 125);
-    writer.write(Instruction::Return, 128);
+    writer.write_const(1.2, 125);
+    writer.write_const(35.0, 125);
+    writer.write_return(128);
 
     Disassembler::disassemble(&chunk,"Test chunk")
         .with_context(|| "Disassembler failed")?;

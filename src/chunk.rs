@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 
 #[derive(Debug)]
 pub struct Chunk {
-    code: Vec<CodeByte>,
+    code: Vec<u8>,
     line_numbers: Vec<i32>,
     constants: Vec<Value>
 }
@@ -14,11 +14,7 @@ impl Chunk {
         Self { code: Vec::new(), line_numbers: Vec::new(), constants: Vec::new() }
     }
 
-    pub fn len(&self) -> usize {
-        self.code.len()
-    }
-
-    pub fn read(&self, offset: usize) -> Result<CodeByte> {
+    pub fn read(&self, offset: usize) -> Result<u8> {
         if offset >= self.code.len() {
             return Err(anyhow!("Offset {} is out range", offset));
         }
@@ -34,8 +30,8 @@ impl Chunk {
         Ok(self.line_numbers[offset])
     }
     
-    pub fn write(&mut self, code_byte: CodeByte, line_number: i32)  {
-        self.code.push(code_byte);
+    pub fn write<B: Into<u8>>(&mut self, code_byte: B, line_number: i32)  {
+        self.code.push(code_byte.into());
         self.line_numbers.push(line_number);
     }
 
@@ -50,26 +46,6 @@ impl Chunk {
         }
 
         Ok(self.constants[index].clone())
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(u8)]
-pub enum CodeByte {
-    Literal(u8),
-    OpCode(OpCode)
-}
-
-#[derive(Debug, Clone)]
-#[repr(u8)]
-pub enum OpCode {
-    Constant,
-    Return
-}
-
-impl Display for OpCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
 

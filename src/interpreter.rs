@@ -1,7 +1,7 @@
-use anyhow::Context;
 use thiserror::Error;
 
-use crate::{chunk::{Chunk, CodeByte, OpCode}, instruction::{InstructionReader, Instruction}};
+use crate::instruction::{Instruction, InstructionReader};
+use crate::chunk::Chunk;
 
 type Result<T> = std::result::Result<T, InterpreterError>;
 
@@ -18,13 +18,13 @@ impl Interpreter {
     pub fn run(&mut self) -> Result<()> {
         let mut reader = InstructionReader::new(&self.chunk);
         loop {
-            let instruction =  reader.read_next()
+            let read_result =  reader.read_next()
                 .map_err(|_| { InterpreterError::new("Failed to read code byte", InterpreterErrorType::CompileError) })?;
 
-            match instruction {
-                Some(instruction) => {
+            match read_result {
+                Some((instruction, _, _)) => {
                     match instruction {
-                        Instruction::Constant(constant) => println!("{}", constant),
+                        Instruction::Constant(_, constant) => println!("{}", constant),
                         Instruction::Return => return Ok(()),
                     }
                 },
