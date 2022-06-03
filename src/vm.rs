@@ -5,16 +5,16 @@ use crate::instruction::{Instruction, InstructionReader};
 use crate::chunk::{Chunk, Value};
 use crate::stack::Stack;
 
-type Result<T> = std::result::Result<T, InterpreterError>;
+type Result<T> = std::result::Result<T, VmError>;
 
 #[derive(Debug)]
-pub struct Interpreter {
+pub struct Vm {
     chunk: Chunk,
     stack: Stack<Value>,
     trace: bool
 }
 
-impl Interpreter {
+impl Vm {
     pub fn new(chunk: Chunk) -> Self {
         Self { chunk, stack: Stack::new(), trace: false }
     }
@@ -29,7 +29,7 @@ impl Interpreter {
 
         loop {
             let read_result =  reader.read_next()
-                .map_err(|_| { InterpreterError::new("Failed to read code byte", InterpreterErrorType::CompileError) })?;
+                .map_err(|_| { VmError::new("Failed to read code byte", VmErrorType::CompileError) })?;
 
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
@@ -55,20 +55,20 @@ impl Interpreter {
 
 
 #[derive(Debug)]
-pub enum InterpreterErrorType {
+pub enum VmErrorType {
     CompileError,
     RuntimeError
 }
 
 #[derive(Error, Debug)]
 #[error("{error_type:?}: {msg}")]
-pub struct InterpreterError {
+pub struct VmError {
     msg: String,
-    error_type: InterpreterErrorType
+    error_type: VmErrorType
 }
 
-impl InterpreterError {
-    pub fn new<M: Into<String>>(msg: M, error_type: InterpreterErrorType) -> Self { 
+impl VmError {
+    pub fn new<M: Into<String>>(msg: M, error_type: VmErrorType) -> Self { 
         Self { msg: msg.into(), error_type }
     }
 }

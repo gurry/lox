@@ -2,9 +2,9 @@ use anyhow::Context;
 use chunk::Chunk;
 use disassembler::Disassembler;
 use instruction::InstructionWriter;
-use interpreter::Interpreter;
+use vm::Vm;
 
-mod interpreter;
+mod vm;
 mod chunk;
 mod disassembler;
 mod instruction;
@@ -21,6 +21,6 @@ fn main() -> anyhow::Result<()> {
     // disassembler.disassemble(&chunk,"Test chunk")
     //     .with_context(|| "Disassembler failed")?;
 
-    let mut interpreter = Interpreter::new_with_tracing(chunk);
+    let mut interpreter = Vm::new_with_tracing(chunk);
     interpreter.run().with_context(|| "Interpreter failed")
 }
