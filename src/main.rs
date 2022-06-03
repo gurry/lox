@@ -1,19 +1,24 @@
-use chunk::{Chunk, Instruction};
+use anyhow::Context;
+use chunk::Chunk;
+use disassembler::Disassembler;
+use instruction::{InstructionWriter, Instruction};
 use interpreter::Interpreter;
 
 mod interpreter;
 mod chunk;
+mod disassembler;
+mod instruction;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let mut chunk = Chunk::new();
-    chunk.write_instruction(Instruction::Constant(1.2), 125);
-    chunk.write_instruction(Instruction::Constant(35.0), 125);
-    chunk.write_instruction(Instruction::Return, 128);
-    chunk.disassemble("Test chunk");
+    let mut writer = InstructionWriter::new(&mut chunk);
+    writer.write(Instruction::Constant(1.2), 125);
+    writer.write(Instruction::Constant(35.0), 125);
+    writer.write(Instruction::Return, 128);
+
+    Disassembler::disassemble(&chunk,"Test chunk")
+        .with_context(|| "Disassembler failed")?;
 
     let mut interpreter = Interpreter::new(chunk);
-    match interpreter.run() {
-        Ok(_) => {},
-        Err(e) => println!("{}", e)
-    }
+    interpreter.run().with_context(|| "Interpreter failed")
 }

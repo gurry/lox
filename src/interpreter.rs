@@ -1,36 +1,38 @@
+use anyhow::Context;
 use thiserror::Error;
 
-use crate::chunk::{Chunk, CodeByte, OpCode};
+use crate::{chunk::{Chunk, CodeByte, OpCode}, instruction::{InstructionReader, Instruction}};
 
 type Result<T> = std::result::Result<T, InterpreterError>;
 
 #[derive(Debug)]
 pub struct Interpreter {
-    chunk: Chunk,
-    ip: usize
+    chunk: Chunk
 }
 
 impl Interpreter {
     pub fn new(chunk: Chunk) -> Self {
-        Self { chunk, ip: 0 }
+        Self { chunk }
     }
 
     pub fn run(&mut self) -> Result<()> {
+        let mut reader = InstructionReader::new(&self.chunk);
         loop {
-            let code_byte = self.chunk.read_code_byte(self.ip)
-                .map_err(|_| { InterpreterError::new(format!("Failed to read code byte at ip {}", self.ip), InterpreterErrorType::CompileError) })?;
-            self.ip += 1;
+            let instruction =  reader.read_next()
+                .map_err(|_| { InterpreterError::new("Failed to read code byte", InterpreterErrorType::CompileError) })?;
 
-            match code_byte {
-                CodeByte::Literal(_) => {},
-                CodeByte::OpCode(op_code) => {
-                    match op_code {
-                        OpCode::Constant => {},
-                        OpCode::Return => return Ok(()),
+            match instruction {
+                Some(instruction) => {
+                    match instruction {
+                        Instruction::Constant(constant) => println!("{}", constant),
+                        Instruction::Return => return Ok(()),
                     }
                 },
+                None => break
             }
         }
+
+        Ok(())
     }
 }
 
