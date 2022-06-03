@@ -1,7 +1,7 @@
 use anyhow::Context;
 use chunk::Chunk;
 use disassembler::Disassembler;
-use instruction::InstructionWriter;
+use instruction::{InstructionWriter, OpCode};
 use vm::Vm;
 
 mod vm;
@@ -15,7 +15,7 @@ fn main() -> anyhow::Result<()> {
     let mut writer = InstructionWriter::new(&mut chunk);
     writer.write_const(1.2, 125);
     writer.write_const(35.0, 125);
-    writer.write_return(128);
+    writer.write_simple_instruction(OpCode::Return, 128);
 
     // let mut disassembler = Disassembler::new();
     // disassembler.disassemble(&chunk,"Test chunk")

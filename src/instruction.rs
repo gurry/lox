@@ -24,8 +24,8 @@ impl<'a> InstructionWriter<'a> {
         self.chunk.write(const_index, src_line_number);
     }
 
-    pub fn write_return(&mut self, src_line_number: i32)  {
-        self.chunk.write(OpCode::Return, src_line_number);
+    pub fn write_simple_instruction(&mut self, op_code: OpCode, src_line_number: i32)  {
+        self.chunk.write(op_code, src_line_number);
     }
 }
 
