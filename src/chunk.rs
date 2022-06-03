@@ -5,13 +5,13 @@ use anyhow::{Result, anyhow};
 #[derive(Debug)]
 pub struct Chunk {
     code: Vec<u8>,
-    line_numbers: Vec<i32>,
+    src_line_numbers: Vec<i32>,
     constants: Vec<Value>
 }
 
 impl Chunk {
     pub fn new() -> Self { 
-        Self { code: Vec::new(), line_numbers: Vec::new(), constants: Vec::new() }
+        Self { code: Vec::new(), src_line_numbers: Vec::new(), constants: Vec::new() }
     }
 
     pub fn read(&self, offset: usize) -> Result<u8> {
@@ -22,17 +22,17 @@ impl Chunk {
         Ok(self.code[offset].clone())
     }
 
-    pub fn get_line_number(&self, offset: usize) -> Result<i32>  {
+    pub fn get_src_line_number(&self, offset: usize) -> Result<i32>  {
         if offset >= self.code.len() {
             return Err(anyhow!("Offset {} is out range", offset));
         }
 
-        Ok(self.line_numbers[offset])
+        Ok(self.src_line_numbers[offset])
     }
     
-    pub fn write<B: Into<u8>>(&mut self, code_byte: B, line_number: i32)  {
+    pub fn write<B: Into<u8>>(&mut self, code_byte: B, src_line_number: i32)  {
         self.code.push(code_byte.into());
-        self.line_numbers.push(line_number);
+        self.src_line_numbers.push(src_line_number);
     }
 
     pub fn add_constant(&mut self, constant: Value) -> u8 {

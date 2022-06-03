@@ -18,14 +18,14 @@ impl<'a> InstructionWriter<'a> {
         Self { chunk }
     }
 
-    pub fn write_const(&mut self, value: f64, line_number: i32) {
+    pub fn write_const(&mut self, value: f64, src_line_number: i32) {
         let const_index = self.chunk.add_constant(Value(value));
-        self.chunk.write(OpCode::Constant, line_number);
-        self.chunk.write(const_index, line_number);
+        self.chunk.write(OpCode::Constant, src_line_number);
+        self.chunk.write(const_index, src_line_number);
     }
 
-    pub fn write_return(&mut self, line_number: i32)  {
-        self.chunk.write(OpCode::Return, line_number);
+    pub fn write_return(&mut self, src_line_number: i32)  {
+        self.chunk.write(OpCode::Return, src_line_number);
     }
 }
 
@@ -45,7 +45,7 @@ impl<'a> InstructionReader<'a> {
             Err(_) => return Ok(None),
         };
 
-        let line_number = self.chunk.get_line_number(self.offset)?;
+        let src_line_number = self.chunk.get_src_line_number(self.offset)?;
 
         let instruction_offset = self.offset;
 
@@ -61,7 +61,7 @@ impl<'a> InstructionReader<'a> {
                 },
                 OpCode::Return => Instruction::Return,
             };
-            Ok(Some((instruction, instruction_offset, line_number)))
+            Ok(Some((instruction, instruction_offset, src_line_number)))
         }
         else {
             bail!("Unknown op code {}", code_byte)
