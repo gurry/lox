@@ -2,23 +2,25 @@ use thiserror::Error;
 
 use crate::disassembler::{self, Disassembler};
 use crate::instruction::{Instruction, InstructionReader};
-use crate::chunk::Chunk;
+use crate::chunk::{Chunk, Value};
+use crate::stack::Stack;
 
 type Result<T> = std::result::Result<T, InterpreterError>;
 
 #[derive(Debug)]
 pub struct Interpreter {
     chunk: Chunk,
+    stack: Stack<Value>,
     trace: bool
 }
 
 impl Interpreter {
     pub fn new(chunk: Chunk) -> Self {
-        Self { chunk, trace: false }
+        Self { chunk, stack: Stack::new(), trace: false }
     }
 
     pub fn new_with_tracing(chunk: Chunk) -> Self {
-        Self { chunk, trace: true }
+        Self { chunk, stack: Stack::new(), trace: true }
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -37,7 +39,8 @@ impl Interpreter {
 
                     match instruction {
                         Instruction::Constant(_, constant) => {
-                            println!("{}", constant)
+                            println!("{}", constant);
+                            self.stack.push(Value(constant));
                         },
                         Instruction::Return => return Ok(()),
                     }

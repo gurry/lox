@@ -8,6 +8,7 @@ mod interpreter;
 mod chunk;
 mod disassembler;
 mod instruction;
+mod stack;
 
 fn main() -> anyhow::Result<()> {
     let mut chunk = Chunk::new();
