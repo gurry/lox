@@ -6,7 +6,7 @@ use anyhow::{Result, anyhow};
 pub struct Chunk {
     code: Vec<u8>,
     src_line_numbers: Vec<i32>,
-    constants: Vec<Value>
+    constants: Vec<f64>
 }
 
 impl Chunk {
@@ -35,25 +35,16 @@ impl Chunk {
         self.src_line_numbers.push(src_line_number);
     }
 
-    pub fn add_constant(&mut self, constant: Value) -> u8 {
+    pub fn add_constant(&mut self, constant: f64) -> u8 {
         self.constants.push(constant);
         (self.constants.len() - 1) as u8
     }
 
-    pub fn get_constant(&self, index: usize) -> Result<Value> {
+    pub fn get_constant(&self, index: usize) -> Result<f64> {
         if index >= self.constants.len() {
             return Err(anyhow!("Index {} is out range", index));
         }
 
         Ok(self.constants[index].clone())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Value(pub f64);
-
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
     }
 }

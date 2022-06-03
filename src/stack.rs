@@ -1,4 +1,5 @@
 
+use anyhow::{Result, bail};
 #[derive(Debug)]
 pub struct Stack<T>(Vec<T>);
 
@@ -11,11 +12,11 @@ impl<T> Stack<T> {
         self.0.push(item)
     }
 
-    pub fn pop(&mut self, item :T) -> Option<T> {
+    pub fn pop(&mut self) -> Result<T> {
         if self.0.is_empty() {
-            return None;
+            bail!("Stack underflow");
         }
 
-        self.0.pop()
+        Ok(self.0.pop().unwrap())
     }
 }

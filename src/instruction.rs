@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
-use crate::chunk::{Chunk, Value};
+use crate::chunk::Chunk;
 use anyhow::{Result, bail};
 
 #[derive(Debug)]
 pub enum Instruction {
     Constant(i32, f64),
-    Return
+    Return,
+    Negate
 }
 
 pub struct InstructionWriter<'a> {
@@ -19,12 +20,12 @@ impl<'a> InstructionWriter<'a> {
     }
 
     pub fn write_const(&mut self, value: f64, src_line_number: i32) {
-        let const_index = self.chunk.add_constant(Value(value));
+        let const_index = self.chunk.add_constant(value);
         self.chunk.write(OpCode::Constant, src_line_number);
         self.chunk.write(const_index, src_line_number);
     }
 
-    pub fn write_simple_instruction(&mut self, op_code: OpCode, src_line_number: i32)  {
+    pub fn write_op_code(&mut self, op_code: OpCode, src_line_number: i32)  {
         self.chunk.write(op_code, src_line_number);
     }
 }
@@ -57,9 +58,10 @@ impl<'a> InstructionReader<'a> {
                     let const_index = self.chunk.read(self.offset)?;
                     self.offset += 1;
                     let constant = self.chunk.get_constant(const_index as usize)?;
-                    Instruction::Constant(const_index as i32, constant.0)
+                    Instruction::Constant(const_index as i32, constant)
                 },
                 OpCode::Return => Instruction::Return,
+                OpCode::Negate => Instruction::Negate,
             };
             Ok(Some((instruction, instruction_offset, src_line_number)))
         }
@@ -97,7 +99,8 @@ impl From<u8> for Symbol {
 #[repr(u8)]
 pub enum OpCode {
     Constant = 0,
-    Return = 1
+    Return = 1,
+    Negate = 2,
 }
 
 impl Into<u8> for OpCode {

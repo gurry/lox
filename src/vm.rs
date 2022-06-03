@@ -1,8 +1,9 @@
+use anyhow::bail;
 use thiserror::Error;
 
 use crate::disassembler::{self, Disassembler};
 use crate::instruction::{Instruction, InstructionReader};
-use crate::chunk::{Chunk, Value};
+use crate::chunk::Chunk;
 use crate::stack::Stack;
 
 type Result<T> = std::result::Result<T, VmError>;
@@ -10,22 +11,23 @@ type Result<T> = std::result::Result<T, VmError>;
 #[derive(Debug)]
 pub struct Vm {
     chunk: Chunk,
-    stack: Stack<Value>,
     trace: bool
 }
 
 impl Vm {
     pub fn new(chunk: Chunk) -> Self {
-        Self { chunk, stack: Stack::new(), trace: false }
+        Self { chunk, trace: false }
     }
 
     pub fn new_with_tracing(chunk: Chunk) -> Self {
-        Self { chunk, stack: Stack::new(), trace: true }
+        Self { chunk, trace: true }
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let mut reader = InstructionReader::new(&self.chunk);
+        let chunk = &self.chunk;
+        let mut reader = InstructionReader::new(chunk);
         let mut disassembler = Disassembler::new();
+        let mut stack = Stack::new();
 
         loop {
             let read_result =  reader.read_next()
@@ -40,9 +42,13 @@ impl Vm {
                     match instruction {
                         Instruction::Constant(_, constant) => {
                             println!("{}", constant);
-                            self.stack.push(Value(constant));
+                            stack.push(constant);
                         },
                         Instruction::Return => return Ok(()),
+                        Instruction::Negate => {
+                            let value = Self::pop(&mut stack)?;
+                            stack.push(-value)
+                        },
                     }
                 },
                 None => break
@@ -50,6 +56,12 @@ impl Vm {
         }
 
         Ok(())
+    }
+
+    fn pop(stack: &mut  Stack<f64>) -> Result<f64> {
+        let value = stack.pop()
+                .map_err(|_| { VmError::new("Failed to pop stack", VmErrorType::CompileError) })?;
+        Ok(value)
     }
 }
 

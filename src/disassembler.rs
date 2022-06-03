@@ -44,6 +44,7 @@ impl Disassembler {
         match instruction {
             Instruction::Constant(index, value) => println!("{} {:04} '{}'", OpCode::Constant, index, value),
             Instruction::Return => println!("{}", OpCode::Return),
+            Instruction::Negate => println!("{}", OpCode::Negate),
         }
     }
 }
