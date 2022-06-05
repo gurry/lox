@@ -70,8 +70,8 @@ impl Vm {
     }
 
     fn binary_op<O: FnOnce(f64, f64) -> f64>(&mut self, op: O) -> Result<()> {
-        let a = self.stack.pop()?;
         let b = self.stack.pop()?;
+        let a = self.stack.pop()?;
         let res = op(a, b);
         self.stack.push(res);
 
