@@ -52,50 +52,23 @@ impl<'a> InstructionReader<'a> {
 
         self.offset += 1;
 
-        if let Symbol::OpCode(op_code) = code_byte.into() {
-            let instruction = match op_code {
-                OpCode::Constant => {
-                    let const_index = self.chunk.read(self.offset)?;
-                    self.offset += 1;
-                    Instruction::Constant(const_index as i32)
-                },
-                OpCode::Return => Instruction::Return,
-                OpCode::Negate => Instruction::Negate,
-            };
-            Ok(Some((instruction, instruction_offset, src_line_number)))
-        }
-        else {
-            bail!("Unknown op code {}", code_byte)
-        }
+        let op_code: OpCode = code_byte.try_into()?;
+
+        let instruction = match op_code {
+            OpCode::Constant => {
+                let const_index = self.chunk.read(self.offset)?;
+                self.offset += 1;
+                Instruction::Constant(const_index as i32)
+            },
+            OpCode::Return => Instruction::Return,
+            OpCode::Negate => Instruction::Negate,
+        };
+        Ok(Some((instruction, instruction_offset, src_line_number)))
     }
 
 
     pub fn get_const(&self, index: usize) -> Result<f64> {
         self.chunk.get_constant(index)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Symbol {
-    Literal(u8),
-    OpCode(OpCode)
-}
-
-impl Into<u8> for Symbol {
-    fn into(self) -> u8 {
-        match self {
-            Symbol::Literal(val) => val,
-            Symbol::OpCode(code) => code.into(),
-        }
-    }
-}
-
-impl From<u8> for Symbol {
-    fn from(value: u8) -> Self {
-        match OpCode::try_from(value) {
-            Ok(op_code) => Symbol::OpCode(op_code),
-            Err(_) => Symbol::Literal(value),
-        }
     }
 }
 
