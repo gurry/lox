@@ -24,6 +24,6 @@ fn main() -> anyhow::Result<()> {
     // disassembler.disassemble(&chunk,"Test chunk")
     //     .with_context(|| "Disassembler failed")?;
 
-    let mut interpreter = Vm::new_with_tracing(chunk);
-    interpreter.run().with_context(|| "VM failed")
+    let mut interpreter = Vm::new_with_tracing();
+    interpreter.run(&mut chunk).with_context(|| "VM failed")
 }
