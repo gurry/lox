@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, bail};
 
 use crate::{instruction::{InstructionReader, Instruction, OpCode}, chunk::Chunk};
 
@@ -41,13 +41,17 @@ impl Disassembler {
 
         self.prev_src_line_number = Some(src_line_number);
 
-        match instruction {
-            Instruction::Constant(index) => {
-                let value = reader.get_const(*index as usize)?;
-                println!("{} {:04} '{}'", OpCode::Constant, index, value)
+        match &instruction.op_code {
+            OpCode::Constant => {
+                match instruction.operand1 {
+                    Some(index) => {
+                        let value = reader.get_const(index as usize)?;
+                        println!("{} {:04} '{}'", OpCode::Constant, index, value)
+                    }
+                    _ => bail!("Opcode {} has no operand", instruction.op_code),
+                }
             },
-            Instruction::Return => println!("{}", OpCode::Return),
-            Instruction::Negate => println!("{}", OpCode::Negate),
+            op_code => println!("{}", op_code)
         };
 
         Ok(())

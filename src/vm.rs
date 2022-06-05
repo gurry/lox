@@ -1,8 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use thiserror::Error;
 
 use crate::disassembler::Disassembler;
-use crate::instruction::{Instruction, InstructionReader};
+use crate::instruction::{InstructionReader, OpCode};
 use crate::chunk::Chunk;
 use crate::stack::Stack;
 
@@ -38,18 +38,23 @@ impl Vm {
                             .context(VmError::runtime("Failed to disassemble instruction"))?;
                     }
 
-                    match instruction {
-                        Instruction::Constant(index) => {
-                            let value = reader.get_const(index as usize)
-                                .context(VmError::runtime(format!("Failed to get constant at index {}", index)))?;
-                            println!("{}", value);
-                            stack.push(value);
+                    match instruction.op_code {
+                        OpCode::Constant => {
+                            match instruction.operand1 {
+                                Some(index) => {
+                                    let value = reader.get_const(index as usize)
+                                        .context(VmError::runtime(format!("Failed to get constant at index {}", index)))?;
+                                    println!("{}", value);
+                                    stack.push(value);
+                                },
+                                None => bail!("Opcode {} has no operand", instruction.op_code),
+                            }
                         },
-                        Instruction::Return => {
+                        OpCode::Return => {
                             println!("{}", stack.pop()?);
                             return Ok(())
                         },
-                        Instruction::Negate => {
+                        OpCode::Negate => {
                             let value = stack.pop()?;
                             stack.push(-value)
                         },

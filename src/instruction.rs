@@ -4,10 +4,28 @@ use crate::chunk::Chunk;
 use anyhow::{Result, bail};
 
 #[derive(Debug)]
-pub enum Instruction {
-    Constant(i32),
-    Return,
-    Negate
+pub struct Instruction {
+    pub op_code: OpCode,
+    pub operand1: Option<u8>,
+    pub operand2: Option<u8>
+}
+
+impl Instruction {
+    pub fn new(op_code: OpCode, operand1: Option<u8>, operand2: Option<u8>) -> Self {
+        Self { op_code, operand1, operand2 }
+    }
+
+    pub fn simple(op_code: OpCode) -> Self {
+        Self::new(op_code, None, None)
+    }
+
+    pub fn unary(op_code: OpCode, operand: u8) -> Self {
+        Self::new(op_code, Some(operand), None)
+    }
+
+    pub fn binary(op_code: OpCode, operand1: u8, operand2: u8) -> Self {
+        Self::new(op_code, Some(operand1), Some(operand2))
+    }
 }
 
 pub struct InstructionWriter<'a> {
@@ -58,10 +76,9 @@ impl<'a> InstructionReader<'a> {
             OpCode::Constant => {
                 let const_index = self.chunk.read(self.offset)?;
                 self.offset += 1;
-                Instruction::Constant(const_index as i32)
+                Instruction::unary(OpCode::Constant, const_index)
             },
-            OpCode::Return => Instruction::Return,
-            OpCode::Negate => Instruction::Negate,
+            op_code => Instruction::simple(op_code)
         };
         Ok(Some((instruction, instruction_offset, src_line_number)))
     }
