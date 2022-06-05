@@ -1,6 +1,5 @@
 use anyhow::Context;
 use chunk::Chunk;
-use disassembler::Disassembler;
 use instruction::{InstructionWriter, OpCode};
 use vm::Vm;
 

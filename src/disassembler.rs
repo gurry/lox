@@ -21,7 +21,7 @@ impl Disassembler {
                 .with_context(|| "Failed to disassemble instruction")?;
 
             match read_result {
-                Some((instruction, offset, src_line_number)) => self.disassemble_instruction(&instruction, offset, src_line_number),
+                Some((instruction, offset, src_line_number)) => self.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)?,
                 None => break
             }
         }
@@ -29,7 +29,7 @@ impl Disassembler {
         Ok(())
     }
 
-    pub fn disassemble_instruction(&mut self, instruction: &Instruction, offset: usize, src_line_number: i32) {
+    pub fn disassemble_instruction<'a>(&mut self, reader: &mut InstructionReader<'a>, instruction: &Instruction, offset: usize, src_line_number: i32) -> Result<()> {
         print!("{:04} ", offset);
 
         let same_src_line_no_as_prev = self.prev_src_line_number.is_some() && src_line_number == self.prev_src_line_number.unwrap();
@@ -42,9 +42,14 @@ impl Disassembler {
         self.prev_src_line_number = Some(src_line_number);
 
         match instruction {
-            Instruction::Constant(index, value) => println!("{} {:04} '{}'", OpCode::Constant, index, value),
+            Instruction::Constant(index) => {
+                let value = reader.get_const(*index as usize)?;
+                println!("{} {:04} '{}'", OpCode::Constant, index, value)
+            },
             Instruction::Return => println!("{}", OpCode::Return),
             Instruction::Negate => println!("{}", OpCode::Negate),
-        }
+        };
+
+        Ok(())
     }
 }

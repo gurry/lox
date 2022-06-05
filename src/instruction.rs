@@ -5,7 +5,7 @@ use anyhow::{Result, bail};
 
 #[derive(Debug)]
 pub enum Instruction {
-    Constant(i32, f64),
+    Constant(i32),
     Return,
     Negate
 }
@@ -57,8 +57,7 @@ impl<'a> InstructionReader<'a> {
                 OpCode::Constant => {
                     let const_index = self.chunk.read(self.offset)?;
                     self.offset += 1;
-                    let constant = self.chunk.get_constant(const_index as usize)?;
-                    Instruction::Constant(const_index as i32, constant)
+                    Instruction::Constant(const_index as i32)
                 },
                 OpCode::Return => Instruction::Return,
                 OpCode::Negate => Instruction::Negate,
@@ -68,6 +67,11 @@ impl<'a> InstructionReader<'a> {
         else {
             bail!("Unknown op code {}", code_byte)
         }
+    }
+
+
+    pub fn get_const(&self, index: usize) -> Result<f64> {
+        self.chunk.get_constant(index)
     }
 }
 

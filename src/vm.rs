@@ -1,7 +1,6 @@
-use anyhow::bail;
 use thiserror::Error;
 
-use crate::disassembler::{self, Disassembler};
+use crate::disassembler::Disassembler;
 use crate::instruction::{Instruction, InstructionReader};
 use crate::chunk::Chunk;
 use crate::stack::Stack;
@@ -15,12 +14,12 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(chunk: Chunk) -> Self {
-        Self { chunk, trace: false }
+    pub fn new(chunk: Chunk, trace: bool) -> Self {
+        Self { chunk, trace }
     }
 
     pub fn new_with_tracing(chunk: Chunk) -> Self {
-        Self { chunk, trace: true }
+        Self::new(chunk, true)
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -28,7 +27,6 @@ impl Vm {
         let mut reader = InstructionReader::new(chunk);
         let mut disassembler = Disassembler::new();
         let mut stack = Stack::new();
-
         loop {
             let read_result =  reader.read_next()
                 .map_err(|_| { VmError::new("Failed to read code byte", VmErrorType::CompileError) })?;
@@ -36,13 +34,16 @@ impl Vm {
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
-                        disassembler.disassemble_instruction(&instruction, offset, src_line_number);
+                        disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
+                            .map_err(|_| { VmError::new("Failed to disassemble instruction", VmErrorType::CompileError) })?;
                     }
 
                     match instruction {
-                        Instruction::Constant(_, constant) => {
-                            println!("{}", constant);
-                            stack.push(constant);
+                        Instruction::Constant(index) => {
+                            let value = reader.get_const(index as usize)
+                                .map_err(|_| { VmError::new(format!("Failed to get constant at index {}", index), VmErrorType::RuntimeError) })?;
+                            println!("{}", value);
+                            stack.push(value);
                         },
                         Instruction::Return => return Ok(()),
                         Instruction::Negate => {
