@@ -90,12 +90,11 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            x if x == OpCode::Constant as u8 => Ok(OpCode::Constant),
-            x if x == OpCode::Return as u8 => Ok(OpCode::Return),
-            x if x == OpCode::Negate as u8 => Ok(OpCode::Negate),
-            x => bail!("Unknown opcode {}", x),
+        if value > OpCode::Negate as u8 {
+            bail!("Unknown opcode {}", value);
         }
+
+        Ok(unsafe { std::mem::transmute(value) })
     }
 }
 
