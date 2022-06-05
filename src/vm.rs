@@ -1,11 +1,10 @@
+use anyhow::{Context, Result};
 use thiserror::Error;
 
 use crate::disassembler::Disassembler;
 use crate::instruction::{Instruction, InstructionReader};
 use crate::chunk::Chunk;
 use crate::stack::Stack;
-
-type Result<T> = std::result::Result<T, VmError>;
 
 #[derive(Debug)]
 pub struct Vm {
@@ -29,19 +28,19 @@ impl Vm {
         let mut stack = Stack::new();
         loop {
             let read_result =  reader.read_next()
-                .map_err(|_| { VmError::new("Failed to read code byte", VmErrorType::RuntimeError) })?;
+            .context(VmError::new("Failed to read code byte", VmErrorType::RuntimeError))?;
 
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
                         disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
-                            .map_err(|_| { VmError::new("Failed to disassemble instruction", VmErrorType::RuntimeError) })?;
+                            .context(VmError::new("Failed to disassemble instruction", VmErrorType::RuntimeError))?;
                     }
 
                     match instruction {
                         Instruction::Constant(index) => {
                             let value = reader.get_const(index as usize)
-                                .map_err(|_| { VmError::new(format!("Failed to get constant at index {}", index), VmErrorType::RuntimeError) })?;
+                                .context(VmError::new(format!("Failed to get constant at index {}", index), VmErrorType::RuntimeError))?;
                             println!("{}", value);
                             stack.push(value);
                         },
@@ -61,7 +60,7 @@ impl Vm {
 
     fn pop(stack: &mut  Stack<f64>) -> Result<f64> {
         let value = stack.pop()
-                .map_err(|_| { VmError::new("Failed to pop stack", VmErrorType::CompileError) })?;
+                .context(VmError::new("Failed to pop stack", VmErrorType::CompileError))?;
         Ok(value)
     }
 }
