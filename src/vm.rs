@@ -33,6 +33,7 @@ impl Vm {
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
+                        println!("{:?}", stack);
                         disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
                             .context(VmError::runtime("Failed to disassemble instruction"))?;
                     }
