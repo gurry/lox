@@ -46,7 +46,7 @@ impl Vm {
                         },
                         Instruction::Return => return Ok(()),
                         Instruction::Negate => {
-                            let value = Self::pop(&mut stack)?;
+                            let value = stack.pop()?;
                             stack.push(-value)
                         },
                     }
@@ -56,12 +56,6 @@ impl Vm {
         }
 
         Ok(())
-    }
-
-    fn pop(stack: &mut  Stack<f64>) -> Result<f64> {
-        let value = stack.pop()
-                .context(VmError::runtime("Failed to pop stack"))?;
-        Ok(value)
     }
 }
 
