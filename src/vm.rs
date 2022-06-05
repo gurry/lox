@@ -44,7 +44,10 @@ impl Vm {
                             println!("{}", value);
                             stack.push(value);
                         },
-                        Instruction::Return => return Ok(()),
+                        Instruction::Return => {
+                            println!("{}", stack.pop()?);
+                            return Ok(())
+                        },
                         Instruction::Negate => {
                             let value = stack.pop()?;
                             stack.push(-value)
