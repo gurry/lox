@@ -28,19 +28,19 @@ impl Vm {
         let mut stack = Stack::new();
         loop {
             let read_result =  reader.read_next()
-            .context(VmError::new("Failed to read code byte", VmErrorType::RuntimeError))?;
+            .context(VmError::runtime("Failed to read code byte"))?;
 
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
                         disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
-                            .context(VmError::new("Failed to disassemble instruction", VmErrorType::RuntimeError))?;
+                            .context(VmError::runtime("Failed to disassemble instruction"))?;
                     }
 
                     match instruction {
                         Instruction::Constant(index) => {
                             let value = reader.get_const(index as usize)
-                                .context(VmError::new(format!("Failed to get constant at index {}", index), VmErrorType::RuntimeError))?;
+                                .context(VmError::runtime(format!("Failed to get constant at index {}", index)))?;
                             println!("{}", value);
                             stack.push(value);
                         },
@@ -60,7 +60,7 @@ impl Vm {
 
     fn pop(stack: &mut  Stack<f64>) -> Result<f64> {
         let value = stack.pop()
-                .context(VmError::new("Failed to pop stack", VmErrorType::CompileError))?;
+                .context(VmError::runtime("Failed to pop stack"))?;
         Ok(value)
     }
 }
@@ -82,5 +82,13 @@ pub struct VmError {
 impl VmError {
     pub fn new<M: Into<String>>(msg: M, error_type: VmErrorType) -> Self { 
         Self { msg: msg.into(), error_type }
+    }
+
+    pub fn compile<M: Into<String>>(msg: M) -> Self { 
+        Self::new(msg, VmErrorType::CompileError)
+    }
+
+    pub fn runtime<M: Into<String>>(msg: M) -> Self { 
+        Self::new(msg, VmErrorType::RuntimeError)
     }
 }
