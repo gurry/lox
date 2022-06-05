@@ -1,11 +1,14 @@
 use crate::token::{TokenType, Token};
+use thiserror::Error;
+use anyhow::{Result, bail};
 
+#[derive(Error, Debug)]
+#[error("[{line}]: {message}")]
 pub struct ScanError {
 	pub line: usize,
     pub message: String
 }
 
-type Result<T> = std::result::Result<T, ScanError>;
 #[derive(Debug)]
 pub struct Scanner {
     source: String,
@@ -78,7 +81,7 @@ impl Scanner {
                     self.identifier();
                 }
                 else {
-                    return Err(ScanError { line: self.line, message: "Unexpected character.".to_string() });
+                    bail!(ScanError { line: self.line, message: "Unexpected character.".to_string() });
                 }
             }
         }
@@ -95,7 +98,7 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            return Err(ScanError { line: self.line, message: "Unterminated string.".to_string() });
+            bail!(ScanError { line: self.line, message: "Unterminated string.".to_string() });
         }
 
         // The closing ".

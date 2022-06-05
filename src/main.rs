@@ -1,7 +1,8 @@
-use anyhow::Context;
-use chunk::Chunk;
-use instruction::{InstructionWriter, OpCode};
-use vm::Vm;
+use std::{path::{PathBuf, Path}, fs::read_to_string, io::{self, Write, BufRead}};
+
+use anyhow::{Context, Result};
+use scanner::Scanner;
+use structopt::StructOpt;
 
 mod vm;
 mod chunk;
@@ -11,21 +12,50 @@ mod stack;
 mod scanner;
 mod token;
 
-fn main() -> anyhow::Result<()> {
-    let mut chunk = Chunk::new();
-    let mut writer = InstructionWriter::new(&mut chunk);
-    writer.write_const(1.2, 125);
-    writer.write_const(35.0, 125);
-    writer.write_op_code(OpCode::Negate, 127);
-    writer.write_op_code(OpCode::Add, 128);
-    writer.write_const(5.0, 129);
-    writer.write_op_code(OpCode::Multiply, 130);
-    writer.write_op_code(OpCode::Return, 131);
 
-    // let mut disassembler = Disassembler::new();
-    // disassembler.disassemble(&chunk,"Test chunk")
-    //     .with_context(|| "Disassembler failed")?;
+#[derive(Debug, StructOpt)]
+#[structopt()]
+struct Options {
+    /// Output file, stdout if not present
+    #[structopt(parse(from_os_str))]
+    source_file_path: Option<PathBuf>
+}
 
-    let mut interpreter = Vm::new_with_tracing();
-    interpreter.run(&mut chunk).with_context(|| "VM failed")
+fn main() -> Result<()> {
+    match Options::from_args() {
+        Options { source_file_path: Some(source_file_path) } => run_file(&source_file_path),
+        _ => run_prompt()
+    }
+}
+
+fn run_file(source_file_path: &Path) -> Result<()> {
+    let source = read_to_string(source_file_path).context("Failed to read source file")?;
+    run(source)
+}
+
+fn run_prompt() -> Result<()> {
+    loop {
+        print!("> ");
+        io::stdout().flush().context("Failed to flush stdout")?;
+        let mut line = String::new();
+        let stdin = io::stdin();
+        stdin.lock().read_line(&mut line).context("stdin failed")?;
+        run(line)?;
+        println!("");
+    }
+}
+
+fn run(source: String) -> Result<()> {
+    let mut scanner = Scanner::new(source);
+    let tokens = scanner.scan_tokens()
+        .context("Scanner failed")?; 
+    
+    println!("{:?}", tokens);
+    // TODO: compile tokens into chunk here
+
+    // let mut vm = Vm::new_with_tracing();
+    // vm.run(&mut chunk).with_context(|| "VM failed")
+
+
+    Ok(())
 }
