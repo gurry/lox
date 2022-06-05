@@ -120,6 +120,7 @@ impl TryFrom<u8> for OpCode {
         match value {
             x if x == OpCode::Constant as u8 => Ok(OpCode::Constant),
             x if x == OpCode::Return as u8 => Ok(OpCode::Return),
+            x if x == OpCode::Negate as u8 => Ok(OpCode::Negate),
             x => bail!("Unknown opcode {}", x),
         }
     }
