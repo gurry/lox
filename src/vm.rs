@@ -58,11 +58,24 @@ impl Vm {
                             let value = stack.pop()?;
                             stack.push(-value)
                         },
+                        OpCode::Add => self.binary_op(&mut stack, |a, b| a + b)?,
+                        OpCode::Subtract => self.binary_op(&mut stack, |a, b| a - b)?,
+                        OpCode::Multiply => self.binary_op(&mut stack, |a, b| a * b)?,
+                        OpCode::Divide => self.binary_op(&mut stack, |a, b| a / b)?,
                     }
                 },
                 None => break
             }
         }
+
+        Ok(())
+    }
+
+    fn binary_op<O: FnOnce(f64, f64) -> f64>(&self, stack: &mut Stack<f64>, op: O) -> Result<()> {
+        let a = stack.pop()?;
+        let b = stack.pop()?;
+        let res = op(a, b);
+        stack.push(res);
 
         Ok(())
     }

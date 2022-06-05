@@ -14,8 +14,11 @@ fn main() -> anyhow::Result<()> {
     let mut writer = InstructionWriter::new(&mut chunk);
     writer.write_const(1.2, 125);
     writer.write_const(35.0, 125);
-    writer.write_op_code(OpCode::Negate, 128);
-    writer.write_op_code(OpCode::Return, 128);
+    writer.write_op_code(OpCode::Negate, 127);
+    writer.write_op_code(OpCode::Add, 128);
+    writer.write_const(5.0, 129);
+    writer.write_op_code(OpCode::Multiply, 130);
+    writer.write_op_code(OpCode::Return, 131);
 
     // let mut disassembler = Disassembler::new();
     // disassembler.disassemble(&chunk,"Test chunk")
