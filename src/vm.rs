@@ -29,13 +29,13 @@ impl Vm {
         let mut stack = Stack::new();
         loop {
             let read_result =  reader.read_next()
-                .map_err(|_| { VmError::new("Failed to read code byte", VmErrorType::CompileError) })?;
+                .map_err(|_| { VmError::new("Failed to read code byte", VmErrorType::RuntimeError) })?;
 
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
                         disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
-                            .map_err(|_| { VmError::new("Failed to disassemble instruction", VmErrorType::CompileError) })?;
+                            .map_err(|_| { VmError::new("Failed to disassemble instruction", VmErrorType::RuntimeError) })?;
                     }
 
                     match instruction {
