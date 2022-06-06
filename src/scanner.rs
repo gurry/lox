@@ -23,23 +23,28 @@ impl Scanner {
         Self { source, start: 0, current: 0, line: 1 }
     }
 
-    pub fn scan_next(&mut self) -> Result<Token> {
-        loop {
-            if let Some(token) = self.scan_token()? {
-                break Ok(token)
+    pub fn scan_next(& mut self) -> Result<Token> {
+        let token_type = loop {
+            if self.is_at_end() {
+                return Ok(Token { lexeme: "", line: self.line, token_type: TokenType::Eof });
             }
-        }
+
+            self.start = self.current;
+
+            let c = self.advance();
+            let token_type = self.scan_char(c)?;
+
+            if let Some(token_type) = token_type {
+                break token_type
+            }
+        };
+
+        let lexeme = self.current_lexeme();
+
+        Ok(Token { token_type, lexeme, line: self.line })
     }
 
-    fn scan_token(&mut self) -> Result<Option<Token>> {
-        if self.is_at_end() {
-            return Ok(Some(Token { lexeme: "".to_string(), line: self.line, token_type: TokenType::Eof }));
-        }
-
-        self.start = self.current;
-
-        let c = self.advance();
-
+    fn scan_char(&mut self, c: char) -> Result<Option<TokenType>> {
         let token_type = match c {
             '(' => TokenType::LeftParen,
             ')' => TokenType::RightParen,
@@ -84,9 +89,7 @@ impl Scanner {
             }
         };
 
-        let lexeme: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
-
-        Ok(Some(Token { token_type, lexeme, line: self.line }))
+        Ok(Some(token_type))
     }
 
     fn string(&mut self) -> Result<TokenType> {
@@ -104,10 +107,10 @@ impl Scanner {
         // The closing ".
         self.advance();
 
-        // Trim the surrounding quotes.
             
-        let value: String = self.source.chars().into_iter().skip(self.start + 1).take(self.current - self.start - 2).collect();
-        Ok(TokenType::String(value))
+        let lexeme = self.current_lexeme();
+        let lexeme_without_quotes = &lexeme[1..(lexeme.len() - 1)]; // Trim the surrounding quotes.
+        Ok(TokenType::String(lexeme_without_quotes.to_string()))
     }
 
     fn number(&mut self) -> Result<TokenType> {
@@ -125,7 +128,7 @@ impl Scanner {
             }
         }
     
-        let substr: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
+        let substr = self.current_lexeme();
         let value =  substr.parse::<f64>()
             .context(format!("Failed to parse '{}' as number", substr))?;
         Ok(TokenType::Number(value))
@@ -136,9 +139,7 @@ impl Scanner {
              self.advance();
         }
 
-        let substr: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
-
-        match substr.as_str() {
+        match self.current_lexeme() {
             "and" => TokenType::And,
             "class" => TokenType::Class,
             "else" => TokenType::Else,
@@ -190,13 +191,29 @@ impl Scanner {
     }
 
     fn advance(&mut self) -> char {
-        let c = self.source.chars().nth(self.current);
+        let c = self.current_char();
         self.current += 1;
-        c.expect("Ran out of chars to advance to")
+        c
     }
 
     fn peek(&self) -> char {
-        if self.is_at_end() { '\0' } else { self.source.chars().nth(self.current).expect("Char can't be None") }
+        if self.is_at_end() { '\0' } else { self.current_char() }
+    }
+
+    fn current_lexeme(&self) -> &str {
+        &self.source[self.start..self.current]
+    }
+
+    fn current_char(&self) -> char {
+        self.char_at(self.current)
+    }
+
+    fn char_at(&self, index: usize) -> char {
+        if index >= self.source.len() {
+            panic!("Attempt to access char beyond source end");
+        }
+
+        self.source.as_bytes()[self.current] as char
     }
 
     fn peek_next(&self) -> char {
@@ -208,13 +225,13 @@ impl Scanner {
 }
 
 #[derive(Debug, Clone)]
-pub struct Token {
+pub struct Token<'a> {
     pub token_type: TokenType,
-    pub lexeme: String,
+    pub lexeme: &'a str,
     pub line: usize
 }
 
-impl Display for Token {
+impl<'a> Display for Token<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} at line {}", self.lexeme, self.line)
     }
