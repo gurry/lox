@@ -111,10 +111,7 @@ impl Scanner {
         // The closing ".
         self.advance();
 
-            
-        let lexeme = self.current_lexeme();
-        let lexeme_without_quotes = &lexeme[1..(lexeme.len() - 1)]; // Trim the surrounding quotes.
-        Ok(TokenType::String(lexeme_without_quotes.to_string()))
+        Ok(TokenType::String)
     }
 
     fn number(&mut self) -> Result<TokenType> {
@@ -249,7 +246,7 @@ pub enum TokenType {
     Bang, BangEqual, Equal, EqualEqual, Greater, GreaterEqual,
     Less, LessEqual,
 
-    Identifier, String(String), Number(f64),
+    Identifier, String, Number(f64),
 
     And, Class, Else, False, Fun, For, If, Nil, Or, Print,
     Return, Super, This, True, Var, While,
