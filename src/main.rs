@@ -4,15 +4,12 @@ use anyhow::{Context, Result};
 use scanner::Scanner;
 use structopt::StructOpt;
 
-use crate::token::TokenType;
-
 mod vm;
 mod chunk;
 mod disassembler;
 mod instruction;
 mod stack;
 mod scanner;
-mod token;
 
 
 #[derive(Debug, StructOpt)]
@@ -53,7 +50,7 @@ fn run(source: String) -> Result<()> {
         let token = scanner.scan_next()
             .context("Scanner failed")?; 
 
-        if token.token_type == TokenType::Eof {
+        if token.token_type == scanner::TokenType::Eof {
             break;
         }
         
