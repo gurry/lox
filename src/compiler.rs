@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use anyhow::{Result, bail};
 use thiserror::Error;
-use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk};
+use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk, instruction::OpCode};
 
 pub struct Compiler{
     scanner: Scanner,
@@ -30,11 +30,17 @@ impl Compiler {
             bail!(CompileErrorCollection { errors: self.errors.clone() })
         }
 
+        let line = match &self.current_token {
+            Some(t) => t.line,
+            None => 0,
+        };
+
+        chunk.write(OpCode::Return, line as i32);
+
         Ok(chunk)
     } 
 
     fn expression(&mut self) {
-        todo!()
     }
 
     fn advance(&mut self) {
@@ -107,7 +113,7 @@ impl Display for CompileErrorCollection {
 
 #[derive(Error, Clone, Debug)]
 pub enum CompileError {
-    #[error("{line} Compile error: '{line}' - {msg}")]
+    #[error("[line {line}] Compile error: '{line}' - {msg}")]
     Parse {
         msg: String,
         lexeme: String,
