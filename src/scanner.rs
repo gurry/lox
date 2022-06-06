@@ -1,9 +1,7 @@
-use std::fmt::Display;
-
 use thiserror::Error;
 use anyhow::{Result, bail, Context};
 
-#[derive(Error, Debug)]
+#[derive(Error, Clone, Debug)]
 #[error("[{line}]: {message}")]
 pub struct ScanError {
 	pub line: usize,
@@ -27,14 +25,23 @@ impl Scanner {
         self.skip_whitespace();
 
         if self.is_at_end() {
-            return Ok(Token { lexeme: "", line: self.line, token_type: TokenType::Eof });
+            return Ok(Token { lexeme: Lexeme { start: self.source.len() - 1, len: 0 }, line: self.line, token_type: TokenType::Eof });
         }
 
         let token_type = self.scan_token()?;
 
-        let lexeme = self.current_lexeme();
+        let lexeme = Lexeme { start: self.start, len: self.current - self.start };
 
         Ok(Token { token_type, lexeme, line: self.line })
+    }
+
+    pub fn get_lexeme_str(&self, lexeme: &Lexeme) -> Result<&str> {
+        let lexeme_end =  lexeme.start + lexeme.len - 1;
+        if lexeme_end > self.source.len() - 1 {
+            bail!("Lexeme {}-{} lies outside source boundary", lexeme.start, lexeme_end);
+        }
+
+        Ok(&self.source[lexeme.start..=lexeme_end])
     }
 
     fn skip_whitespace(&mut self) {
@@ -226,16 +233,16 @@ impl Scanner {
 }
 
 #[derive(Debug, Clone)]
-pub struct Token<'a> {
-    pub token_type: TokenType,
-    pub lexeme: &'a str,
-    pub line: usize
+pub struct Lexeme {
+    pub start: usize,
+    pub len: usize
 }
 
-impl<'a> Display for Token<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} at line {}", self.lexeme, self.line)
-    }
+#[derive(Debug, Clone)]
+pub struct Token {
+    pub token_type: TokenType,
+    pub lexeme: Lexeme,
+    pub line: usize
 }
 
 #[derive(Debug, Clone, PartialEq)]

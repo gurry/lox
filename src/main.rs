@@ -1,8 +1,9 @@
 use std::{path::{PathBuf, Path}, fs::read_to_string, io::{self, Write, BufRead}};
 
-use anyhow::{Context, Result};
-use scanner::Scanner;
+use anyhow::{Context, Result, bail};
+use compiler::{Compiler, CompileErrorCollection};
 use structopt::StructOpt;
+use vm::Vm;
 
 mod vm;
 mod chunk;
@@ -10,6 +11,7 @@ mod disassembler;
 mod instruction;
 mod stack;
 mod scanner;
+mod compiler;
 
 
 #[derive(Debug, StructOpt)]
@@ -45,23 +47,20 @@ fn run_prompt() -> Result<()> {
 }
 
 fn run(source: String) -> Result<()> {
-    let mut scanner = Scanner::new(source);
-    loop {
-        let token = scanner.scan_next()
-            .context("Scanner failed")?; 
-
-        if token.token_type == scanner::TokenType::Eof {
-            break;
+    let mut compiler = Compiler::new(source);
+    let mut chunk = match compiler.compile() {
+        Ok(c) => c,
+        Err(e) => {
+            let errors = &e.downcast_ref::<CompileErrorCollection>().unwrap().errors;
+            for e in errors {
+                println!("{}", e);
+            }
+            bail!("Compilation failed");
         }
-        
-        println!("{:?}", token);
-    }
+    };
 
-    // TODO: compile tokens into chunk here
-
-    // let mut vm = Vm::new_with_tracing();
-    // vm.run(&mut chunk).with_context(|| "VM failed")
-
+    let mut vm = Vm::new_with_tracing();
+    vm.run(&mut chunk).context("VM failed")?;
 
     Ok(())
 }

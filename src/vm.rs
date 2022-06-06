@@ -26,14 +26,14 @@ impl Vm {
         let mut disassembler = Disassembler::new();
         loop {
             let read_result =  reader.read_next()
-            .context(VmError::runtime("Failed to read code byte"))?;
+            .context(VmError::new("Failed to read code byte"))?;
 
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
                         println!("{:?}", self.stack);
                         disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
-                            .context(VmError::runtime("Failed to disassemble instruction"))?;
+                            .context(VmError::new("Failed to disassemble instruction"))?;
                     }
 
                     match instruction.op_code {
@@ -41,7 +41,7 @@ impl Vm {
                             match instruction.operand1 {
                                 Some(index) => {
                                     let value = reader.get_const(index as usize)
-                                        .context(VmError::runtime(format!("Failed to get constant at index {}", index)))?;
+                                        .context(VmError::new(format!("Failed to get constant at index {}", index)))?;
                                     println!("{}", value);
                                     self.stack.push(value);
                                 },
@@ -79,30 +79,14 @@ impl Vm {
     }
 }
 
-
-#[derive(Debug)]
-pub enum VmErrorType {
-    CompileError,
-    RuntimeError
-}
-
 #[derive(Error, Debug)]
-#[error("{error_type:?}: {msg}")]
+#[error("{msg}")]
 pub struct VmError {
-    msg: String,
-    error_type: VmErrorType
+    msg: String
 }
 
 impl VmError {
-    pub fn new<M: Into<String>>(msg: M, error_type: VmErrorType) -> Self { 
-        Self { msg: msg.into(), error_type }
-    }
-
-    pub fn compile<M: Into<String>>(msg: M) -> Self { 
-        Self::new(msg, VmErrorType::CompileError)
-    }
-
-    pub fn runtime<M: Into<String>>(msg: M) -> Self { 
-        Self::new(msg, VmErrorType::RuntimeError)
+    pub fn new<M: Into<String>>(msg: M) -> Self { 
+        Self { msg: msg.into() }
     }
 }
