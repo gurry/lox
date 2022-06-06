@@ -113,7 +113,7 @@ impl Display for CompileErrorCollection {
 
 #[derive(Error, Clone, Debug)]
 pub enum CompileError {
-    #[error("[line {line}] Compile error: '{line}' - {msg}")]
+    #[error("[line {line}] Compile error: '{lexeme}' - {msg}")]
     Parse {
         msg: String,
         lexeme: String,
