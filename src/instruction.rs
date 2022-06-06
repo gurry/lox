@@ -28,13 +28,21 @@ impl Instruction {
     }
 }
 
-pub struct InstructionWriter<'a> {
-    chunk: &'a mut Chunk
+pub struct InstructionWriter {
+    chunk: Chunk
 }
 
-impl<'a> InstructionWriter<'a> {
-    pub fn new(chunk: &'a mut Chunk) -> Self {
+impl InstructionWriter {
+    pub fn new(chunk: Chunk) -> Self {
         Self { chunk }
+    }
+
+    pub fn with_new_chunk() -> Self {
+        Self { chunk: Chunk::new() }
+    }
+
+    pub fn to_chunk(self) -> Chunk {
+        self.chunk
     }
 
     pub fn write_const(&mut self, value: f64, src_line_number: i32) -> Result<()> {

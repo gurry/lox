@@ -1,11 +1,12 @@
 use std::fmt::Display;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, Context};
 use thiserror::Error;
-use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk, instruction::OpCode};
+use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk, instruction::{OpCode, InstructionWriter}};
 
 pub struct Compiler{
     scanner: Scanner,
+    writer: InstructionWriter,
     current_token: Option<Token>,
     prev_token: Option<Token>,
     errors: Vec<CompileError>,
@@ -14,15 +15,13 @@ pub struct Compiler{
 
 impl Compiler {
     pub fn new(source: String) -> Self {
-        Self { scanner: Scanner::new(source), current_token: None, prev_token: None, errors: Vec::new(), panic_mode: false }
+        Self { scanner: Scanner::new(source), writer: InstructionWriter::with_new_chunk(), current_token: None, prev_token: None, errors: Vec::new(), panic_mode: false }
     }
 
-    pub fn compile(&mut self) -> Result<Chunk> {
-        let mut chunk = Chunk::new();
-
+    pub fn compile(mut self) -> Result<Chunk> {
         self.advance();
 
-        self.expression();
+        self.expression()?;
 
         self.consume(&TokenType::Eof, "Expected EOF");
 
@@ -35,12 +34,33 @@ impl Compiler {
             None => 0,
         };
 
-        chunk.write(OpCode::Return, line as i32);
+        self.writer.write_op_code(OpCode::Return, line as i32);
 
-        Ok(chunk)
+        Ok(self.writer.to_chunk())
     } 
 
-    fn expression(&mut self) {
+    fn expression(&mut self) -> Result<()> {
+        let (current, _) = self.current()?;
+        match current.token_type {
+            TokenType::Number(n) => self.number(),
+            _ => bail!("TODO")
+        }
+    }
+
+    fn number(&mut self) -> Result<()> {
+        let (token, _) = self.current()?;
+        let num = match token.token_type {
+            TokenType::Number(n) => n,
+            _ => bail!("Expected token type Num but found some other type")
+        };
+        self.writer.write_const(num, token.line as i32)
+    }
+
+    fn current(&self) -> Result<(&Token, &str)> {
+        let current_token = self.current_token.as_ref()
+            .context("current token is null")?;
+        let lexeme_str = self.scanner.get_lexeme_str(&current_token.lexeme).expect("Current lexeme out of source boundary");
+        Ok((&current_token, lexeme_str))
     }
 
     fn advance(&mut self) {
