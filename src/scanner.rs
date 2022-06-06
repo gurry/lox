@@ -206,6 +206,7 @@ impl Scanner {
         self.source.chars().nth(self.current + 1).expect("Char can't be None")
     } 
 }
+
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
@@ -218,7 +219,6 @@ impl Display for Token {
         write!(f, "{} at line {}", self.lexeme, self.line)
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
