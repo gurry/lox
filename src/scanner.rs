@@ -24,27 +24,47 @@ impl Scanner {
     }
 
     pub fn scan_next(& mut self) -> Result<Token> {
-        let token_type = loop {
-            if self.is_at_end() {
-                return Ok(Token { lexeme: "", line: self.line, token_type: TokenType::Eof });
-            }
+        self.skip_whitespace();
 
-            self.start = self.current;
+        if self.is_at_end() {
+            return Ok(Token { lexeme: "", line: self.line, token_type: TokenType::Eof });
+        }
 
-            let c = self.advance();
-            let token_type = self.scan_char(c)?;
-
-            if let Some(token_type) = token_type {
-                break token_type
-            }
-        };
+        let token_type = self.scan_token()?;
 
         let lexeme = self.current_lexeme();
 
         Ok(Token { token_type, lexeme, line: self.line })
     }
 
-    fn scan_char(&mut self, c: char) -> Result<Option<TokenType>> {
+    fn skip_whitespace(&mut self) {
+        loop {
+            match self.peek() {
+                '\n' => {
+                    self.line += 1;
+                    self.advance();
+                },
+                ' ' | '\r' | '\t' => { self.advance(); },
+                '/' => { 
+                    if self.peek_next() == '/' { // A commit starts with two slaces.
+                        // A comment goes until the end of the line.
+                        while self.peek() != '\n' && !self.is_at_end() {
+                            self.advance();
+                        }
+                    }
+                    else {
+                        break
+                    }
+                },
+                _ => break
+            }
+        }
+    } 
+
+    fn scan_token(&mut self) -> Result<TokenType> {
+        self.start = self.current;
+        let c = self.advance();
+
         let token_type = match c {
             '(' => TokenType::LeftParen,
             ')' => TokenType::RightParen,
@@ -60,25 +80,9 @@ impl Scanner {
             '=' => if self.char_matches('=') { TokenType::EqualEqual } else { TokenType::Equal },
             '<' => if self.char_matches('=') { TokenType::LessEqual } else { TokenType::Less },
             '>' => if self.char_matches('=') { TokenType::GreaterEqual } else { TokenType::Greater },
-            '/' => { 
-                if self.char_matches('/') {
-                    // A comment goes until the end of the line.
-                    while self.peek() != '\n' && !self.is_at_end() {
-                        self.advance();
-                    }
-
-                    return Ok(None)
-                } else {
-                    TokenType::Slash
-                }
-            },
+            '/' => TokenType::Slash,
             '0'..='9' => self.number()?,
             '"' => self.string()?,
-            ' ' | '\r' | '\t' => return Ok(None),
-            '\n' => {
-                self.line += 1;
-                return Ok(None)
-            },
             c => {
                 if self.is_alpha(c) {
                     self.identifier()
@@ -89,7 +93,7 @@ impl Scanner {
             }
         };
 
-        Ok(Some(token_type))
+        Ok(token_type)
     }
 
     fn string(&mut self) -> Result<TokenType> {
@@ -200,28 +204,28 @@ impl Scanner {
         if self.is_at_end() { '\0' } else { self.current_char() }
     }
 
+    fn peek_next(&self) -> char {
+        match self.char_at(self.current + 1) {
+            Some(c) => c,
+            None => '\0'
+        }
+    }
+
     fn current_lexeme(&self) -> &str {
         &self.source[self.start..self.current]
     }
 
     fn current_char(&self) -> char {
-        self.char_at(self.current)
+        self.char_at(self.current).expect("Ran past end of source")
     }
 
-    fn char_at(&self, index: usize) -> char {
+    fn char_at(&self, index: usize) -> Option<char> {
         if index >= self.source.len() {
-            panic!("Attempt to access char beyond source end");
+            None
+        } else {
+            Some(self.source.as_bytes()[index] as char)
         }
-
-        self.source.as_bytes()[self.current] as char
     }
-
-    fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() {
-            return '\0';
-        }
-        self.source.chars().nth(self.current + 1).expect("Char can't be None")
-    } 
 }
 
 #[derive(Debug, Clone)]
