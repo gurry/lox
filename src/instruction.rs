@@ -37,10 +37,15 @@ impl<'a> InstructionWriter<'a> {
         Self { chunk }
     }
 
-    pub fn write_const(&mut self, value: f64, src_line_number: i32) {
+    pub fn write_const(&mut self, value: f64, src_line_number: i32) -> Result<()> {
         let const_index = self.chunk.add_constant(value);
+        if const_index > u8::MAX {
+            bail!("Too many costants in chunk")
+        }
         self.chunk.write(OpCode::Constant, src_line_number);
         self.chunk.write(const_index, src_line_number);
+
+        Ok(())
     }
 
     pub fn write_op_code(&mut self, op_code: OpCode, src_line_number: i32)  {
