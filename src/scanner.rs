@@ -1,6 +1,6 @@
 use crate::token::{TokenType, Token};
 use thiserror::Error;
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, Context};
 
 #[derive(Error, Debug)]
 #[error("[{line}]: {message}")]
@@ -12,7 +12,6 @@ pub struct ScanError {
 #[derive(Debug)]
 pub struct Scanner {
     source: String,
-    tokens: Vec<Token>,
     start: usize,
     current: usize,
     line: usize
@@ -20,76 +19,76 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new(source: String) -> Self {
-        Self { source, tokens: Vec::new(), start: 0, current: 0, line: 1 }
+        Self { source, start: 0, current: 0, line: 1 }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>> {
-        while !self.is_at_end() {
-            self.start = self.current;
-            self.scan_token()?;
+    pub fn scan_next(&mut self) -> Result<Token> {
+        loop {
+            if let Some(token) = self.scan_token()? {
+                break Ok(token)
+            }
+        }
+    }
+
+    fn scan_token(&mut self) -> Result<Option<Token>> {
+        if self.is_at_end() {
+            return Ok(Some(Token { lexeme: "".to_string(), line: self.line, token_type: TokenType::Eof }));
         }
 
-        self.tokens.push(Token { token_type: TokenType::Eof, lexeme: "".to_string(), line: self.line });
-        Ok(self.tokens.clone())
-    }
+        self.start = self.current;
 
-    fn scan_token(&mut self) -> Result<()> {
         let c = self.advance();
-        match c {
-            '(' => self.add_token(TokenType::LeftParen),
-            ')' => self.add_token(TokenType::RightParen),
-            '{' => self.add_token(TokenType::LeftBrace),
-            '}' => self.add_token(TokenType::RightBrace),
-            ',' => self.add_token(TokenType::Comma),
-            '.' => self.add_token(TokenType::Dot),
-            '-' => self.add_token(TokenType::Minus),
-            '+' => self.add_token(TokenType::Plus),
-            ';' => self.add_token(TokenType::Semicolon),
-            '*' => self.add_token(TokenType::Star),
-            '!' => {
-                let token_type = if self.char_matches('=') { TokenType::BangEqual } else { TokenType::Bang };
-                self.add_token(token_type);
-            },
-            '=' => {
-                let token_type = if self.char_matches('=') { TokenType::EqualEqual } else { TokenType::Equal };
-                self.add_token(token_type);
-            },
-            '<' => { 
-                let token_type = if self.char_matches('=') { TokenType::LessEqual } else { TokenType::Less };
-                self.add_token(token_type);
-            },
-            '>' => {
-                let token_type = if self.char_matches('=') { TokenType::GreaterEqual } else { TokenType::Greater };
-                self.add_token(token_type);
-            },
+
+        let token_type = match c {
+            '(' => TokenType::LeftParen,
+            ')' => TokenType::RightParen,
+            '{' => TokenType::LeftBrace,
+            '}' => TokenType::RightBrace,
+            ',' => TokenType::Comma,
+            '.' => TokenType::Dot,
+            '-' => TokenType::Minus,
+            '+' => TokenType::Plus,
+            ';' => TokenType::Semicolon,
+            '*' => TokenType::Star,
+            '!' => if self.char_matches('=') { TokenType::BangEqual } else { TokenType::Bang },
+            '=' => if self.char_matches('=') { TokenType::EqualEqual } else { TokenType::Equal },
+            '<' => if self.char_matches('=') { TokenType::LessEqual } else { TokenType::Less },
+            '>' => if self.char_matches('=') { TokenType::GreaterEqual } else { TokenType::Greater },
             '/' => { 
                 if self.char_matches('/') {
                     // A comment goes until the end of the line.
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+
+                    return Ok(None)
                 } else {
-                    self.add_token(TokenType::Slash);
+                    TokenType::Slash
                 }
             },
-            '0'..='9' => self.number(),
+            '0'..='9' => self.number()?,
             '"' => self.string()?,
-            ' ' | '\r' | '\t' => { /* Ignore whitespace */},
-            '\n' => self.line += 1,
+            ' ' | '\r' | '\t' => return Ok(None),
+            '\n' => {
+                self.line += 1;
+                return Ok(None)
+            },
             c => {
                 if self.is_alpha(c) {
-                    self.identifier();
+                    self.identifier()
                 }
                 else {
-                    bail!(ScanError { line: self.line, message: "Unexpected character.".to_string() });
+                    bail!(ScanError { line: self.line, message: "Unexpected character.".to_string() })
                 }
             }
-        }
+        };
 
-        Ok(())
+        let lexeme: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
+
+        Ok(Some(Token { token_type, lexeme, line: self.line }))
     }
 
-    fn string(&mut self) -> Result<()> {
+    fn string(&mut self) -> Result<TokenType> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -107,12 +106,10 @@ impl Scanner {
         // Trim the surrounding quotes.
             
         let value: String = self.source.chars().into_iter().skip(self.start + 1).take(self.current - self.start - 2).collect();
-        self.add_token(TokenType::String(value));
-
-        Ok(())
+        Ok(TokenType::String(value))
     }
 
-    fn number(&mut self) {
+    fn number(&mut self) -> Result<TokenType> {
         while self.is_digit(self.peek()) {
             self.advance();
         }
@@ -128,18 +125,19 @@ impl Scanner {
         }
     
         let substr: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
-        let value =  substr.parse::<f64>().expect("Cannot fail to parse number");
-        self.add_token(TokenType::Number(value));
+        let value =  substr.parse::<f64>()
+            .context(format!("Failed to parse '{}' as number", substr))?;
+        Ok(TokenType::Number(value))
     }
 
-    fn identifier(&mut self) {
+    fn identifier(&mut self) -> TokenType {
         while self.is_alphanumeric(self.peek()) {
              self.advance();
         }
 
         let substr: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
 
-        let token = match substr.as_str() {
+        match substr.as_str() {
             "and" => TokenType::And,
             "class" => TokenType::Class,
             "else" => TokenType::Else,
@@ -157,9 +155,7 @@ impl Scanner {
             "var" => TokenType::Var,
             "while" => TokenType::While,
             _ => TokenType::Identifier,
-        };
-    
-        self.add_token(token);
+        }
     }
 
     fn is_at_end(&self) -> bool {
@@ -190,11 +186,6 @@ impl Scanner {
 
         self.current += 1;
         true
-    }
-
-    fn add_token(&mut self, token_type: TokenType) {
-        let lexeme: String = self.source.chars().into_iter().skip(self.start).take(self.current - self.start).collect();
-        self.tokens.push(Token { token_type, lexeme, line: self.line });
     }
 
     fn advance(&mut self) -> char {

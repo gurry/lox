@@ -4,6 +4,8 @@ use anyhow::{Context, Result};
 use scanner::Scanner;
 use structopt::StructOpt;
 
+use crate::token::TokenType;
+
 mod vm;
 mod chunk;
 mod disassembler;
@@ -47,10 +49,17 @@ fn run_prompt() -> Result<()> {
 
 fn run(source: String) -> Result<()> {
     let mut scanner = Scanner::new(source);
-    let tokens = scanner.scan_tokens()
-        .context("Scanner failed")?; 
-    
-    println!("{:?}", tokens);
+    loop {
+        let token = scanner.scan_next()
+            .context("Scanner failed")?; 
+
+        if token.token_type == TokenType::Eof {
+            break;
+        }
+        
+        println!("{:?}", token);
+    }
+
     // TODO: compile tokens into chunk here
 
     // let mut vm = Vm::new_with_tracing();
