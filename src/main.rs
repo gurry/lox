@@ -4,7 +4,7 @@ use anyhow::{Context, Result, bail};
 use compiler::{Compiler, CompileErrorCollection};
 use disassembler::Disassembler;
 use structopt::StructOpt;
-use vm::Vm;
+use vm::{Vm, VmError};
 
 mod vm;
 mod chunk;
@@ -89,7 +89,12 @@ fn run(source: String, trace: bool, disassemble: bool) {
 
     let mut vm = Vm::new(trace);
     match vm.run(&mut chunk) {
-        Err(e) => println!("Code execution failed: {}", e),
+        Err(e) => {
+            match &e.downcast_ref::<VmError>() {
+                Some(e) => print!("{}", e),
+                None => println!("Execution error: {}", e),
+            }
+        },
         _ => {}
     };
 }

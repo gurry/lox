@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{chunk::Chunk, value::Value};
 use anyhow::{Result, bail};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instruction {
     pub op_code: OpCode,
     pub operand1: Option<u8>,
@@ -25,6 +25,21 @@ impl Instruction {
 
     pub fn binary(op_code: OpCode, operand1: u8, operand2: u8) -> Self {
         Self::new(op_code, Some(operand1), Some(operand2))
+    }
+}
+
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.op_code)?;
+        match self.operand1 {
+            Some(o) => write!(f, " {}", o)?,
+            None => {},
+        };
+
+        match self.operand2 {
+            Some(o) => write!(f, " {}", o),
+            None => Ok(()),
+        }
     }
 }
 

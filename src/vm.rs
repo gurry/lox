@@ -1,8 +1,10 @@
+use std::fmt::Display;
+
 use anyhow::{Context, Result, bail};
 use thiserror::Error;
 
 use crate::disassembler::Disassembler;
-use crate::instruction::{InstructionReader, OpCode};
+use crate::instruction::{InstructionReader, OpCode, Instruction};
 use crate::chunk::Chunk;
 use crate::stack::Stack;
 use crate::value::Value;
@@ -23,14 +25,14 @@ impl Vm {
         let mut disassembler = Disassembler::new();
         loop {
             let read_result =  reader.read_next()
-            .context(VmError::new("Failed to read code byte"))?;
+            .context(VmError::from_msg("Failed to read code byte"))?;
 
             match read_result {
                 Some((instruction, offset, src_line_number)) => {
                     if self.trace {
                         println!("{:?}", self.stack);
                         disassembler.disassemble_instruction(&mut reader, &instruction, offset, src_line_number)
-                            .context(VmError::new("Failed to disassemble instruction"))?;
+                            .context(VmError::new("Failed to disassemble instruction", (instruction.clone(), offset, src_line_number)))?;
                     }
 
                     match instruction.op_code {
@@ -38,7 +40,7 @@ impl Vm {
                             match instruction.operand1 {
                                 Some(index) => {
                                     let value = reader.get_const(index as usize)
-                                        .context(VmError::new(format!("Failed to get constant at index {}", index)))?;
+                                        .context(VmError::new(format!("Failed to get constant at index {}", index), (instruction.clone(), offset, src_line_number)))?;
                                     if self.trace {
                                         println!("--> Const: {}", value);
                                     }
@@ -88,13 +90,27 @@ impl Vm {
 }
 
 #[derive(Error, Debug)]
-#[error("{msg}")]
 pub struct VmError {
-    msg: String
+    msg: String,
+    details: Option<(Instruction, usize, i32)>
 }
 
 impl VmError {
-    pub fn new<M: Into<String>>(msg: M) -> Self { 
-        Self { msg: msg.into() }
+    pub fn new<M: Into<String>>(msg: M, details: (Instruction, usize, i32)) -> Self { 
+        Self { msg: msg.into(), details: Some(details) }
+    }
+
+
+    pub fn from_msg<M: Into<String>>(msg: M) -> Self { 
+        Self { msg: msg.into(), details: None }
+    }
+}
+
+impl Display for VmError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.details {
+            Some(details) => write!(f, "[source line {}, byte code offset {}, inst '{}'] {}", details.2, details.1, details.0, self.msg),
+            None => write!(f, "{}", self.msg),
+        }
     }
 }
