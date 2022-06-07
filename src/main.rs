@@ -68,7 +68,7 @@ fn run(source: String, trace: bool, disassemble: bool) {
                     }
                 },
                 None => {
-                    println!("Error occured: {}", e);
+                    println!("Compilation failed: {}", e);
                 }
             };
 
