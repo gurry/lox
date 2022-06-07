@@ -120,17 +120,20 @@ impl<'a> InstructionReader<'a> {
 #[derive(Debug, Clone)]
 #[repr(u8)]
 pub enum OpCode {
-    Constant = 0,
-    Return = 1,
-    Negate = 2,
-    Add = 3,
-    Subtract = 4,
-    Multiply = 5,
-    Divide = 6,
-    Nil = 7,
-    True = 8,
-    False = 9,
-    Not = 10
+    Constant,
+    Return,
+    Negate,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Nil,
+    True,
+    False,
+    Not,
+    Equal,
+    Greater,
+    Less
 }
 
 impl Into<u8> for OpCode {
@@ -143,7 +146,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::Not as u8 {
+        if value > OpCode::Less as u8 {
             bail!("Unknown opcode {}", value);
         }
 

@@ -61,10 +61,10 @@ impl Vm {
 
                             self.stack.push(negated_value)
                         },
-                        OpCode::Add => self.binary_op(|a, b| a + b)?,
-                        OpCode::Subtract => self.binary_op(|a, b| a - b)?,
-                        OpCode::Multiply => self.binary_op(|a, b| a * b)?,
-                        OpCode::Divide => self.binary_op(|a, b| a / b)?,
+                        OpCode::Add => self.num_binary_op(|a, b| a + b)?,
+                        OpCode::Subtract => self.num_binary_op(|a, b| a - b)?,
+                        OpCode::Multiply => self.num_binary_op(|a, b| a * b)?,
+                        OpCode::Divide => self.num_binary_op(|a, b| a / b)?,
                         OpCode::Nil => self.stack.push(Value::Nil),
                         OpCode::True => self.stack.push(Value::Boolean(true)),
                         OpCode::False => self.stack.push(Value::Boolean(false)),
@@ -73,7 +73,10 @@ impl Vm {
                                 Value::Boolean(v) => self.stack.push(Value::Boolean(!v)),
                                 _ => bail!(VmError::new("Attempted not on a non-bool value", (instruction.clone(), offset, src_line_number)))
                             }
-                        }
+                        },
+                        OpCode::Equal => self.binary_op(|a, b| Ok(Value::Boolean(a == b)))?,
+                        OpCode::Greater => self.binary_op(|a, b| Ok(Value::Boolean(a > b)))?,
+                        OpCode::Less => self.binary_op(|a, b| Ok(Value::Boolean(a < b)))?,
                     }
                 },
                 None => break
@@ -83,18 +86,25 @@ impl Vm {
         Ok(())
     }
 
-    fn binary_op<O: FnOnce(f64, f64) -> f64>(&mut self, op: O) -> Result<()> {
+    fn binary_op<O: FnOnce(Value, Value) -> Result<Value>>(&mut self, op: O) -> Result<()> {
         let b = self.stack.pop()?;
         let a = self.stack.pop()?;
 
-        let res = match (a, b) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(op(a, b)),
-            _ => bail!("Attempted binary arithmetic operation on non-numeric operand")
-        };
+        let res = op(a, b)?;
 
         self.stack.push(res);
 
         Ok(())
+    }
+
+
+    fn num_binary_op<O: FnOnce(f64, f64) -> f64>(&mut self, op: O) -> Result<()> {
+        self.binary_op(|a, b| {
+            match (a, b) {
+                (Value::Number(a), Value::Number(b)) => Ok(Value::Number(op(a, b))),
+                _ => bail!("Numberic operation attempted on non-numbeic values")
+            }
+        })
     }
 }
 

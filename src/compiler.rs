@@ -83,6 +83,21 @@ impl Compiler {
             TokenType::Minus => self.writer.write_op_code(OpCode::Subtract, line as i32),
             TokenType::Star => self.writer.write_op_code(OpCode::Multiply, line as i32),
             TokenType::Slash => self.writer.write_op_code(OpCode::Divide, line as i32),
+            TokenType::BangEqual => {
+                self.writer.write_op_code(OpCode::Equal, line as i32);
+                self.writer.write_op_code(OpCode::Not, line as i32);
+            },
+            TokenType::EqualEqual => self.writer.write_op_code(OpCode::Equal, line as i32),
+            TokenType::Greater => self.writer.write_op_code(OpCode::Greater, line as i32),
+            TokenType::GreaterEqual => {
+                self.writer.write_op_code(OpCode::Less, line as i32);
+                self.writer.write_op_code(OpCode::Not, line as i32);
+            },
+            TokenType::Less => self.writer.write_op_code(OpCode::Less, line as i32),
+            TokenType::LessEqual => {
+                self.writer.write_op_code(OpCode::Greater, line as i32);
+                self.writer.write_op_code(OpCode::Not, line as i32);
+            },
             _ => {},
         }
 
@@ -237,13 +252,13 @@ impl Compiler {
         table.add(&TokenType::Star, None, Some(Self::binary), Precedence::Factor);
 
         table.add(&TokenType::Bang, Some(Self::unary), None, Precedence::Factor);
-        table.add_null(&TokenType::BangEqual);
+        table.add(&TokenType::BangEqual, None, Some(Self::binary), Precedence::Equality);
         table.add_null(&TokenType::Equal);
-        table.add_null(&TokenType::EqualEqual);
-        table.add_null(&TokenType::Greater);
-        table.add_null(&TokenType::GreaterEqual);
-        table.add_null(&TokenType::Less);
-        table.add_null(&TokenType::LessEqual);
+        table.add(&TokenType::EqualEqual, None, Some(Self::binary), Precedence::Equality);
+        table.add(&TokenType::Greater, None, Some(Self::binary), Precedence::Comparison);
+        table.add(&TokenType::GreaterEqual, None, Some(Self::binary), Precedence::Comparison);
+        table.add(&TokenType::Less, None, Some(Self::binary), Precedence::Comparison);
+        table.add(&TokenType::LessEqual, None, Some(Self::binary), Precedence::Comparison);
 
         table.add_null(&TokenType::Identifier);
         table.add(&TokenType::Number, Some(Self::number), None, Precedence::None);
