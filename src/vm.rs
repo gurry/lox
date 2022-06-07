@@ -56,7 +56,7 @@ impl Vm {
                         OpCode::Negate => {
                             let negated_value = match self.stack.pop()? {
                                 Value::Number(n) => Value::Number(-n),
-                                _ => bail!("Attempt to negate a non-numeric value")
+                                _ => bail!(VmError::new("Attempt to negate a non-numeric value", (instruction.clone(), offset, src_line_number)))
                             };
 
                             self.stack.push(negated_value)
@@ -68,6 +68,12 @@ impl Vm {
                         OpCode::Nil => self.stack.push(Value::Nil),
                         OpCode::True => self.stack.push(Value::Boolean(true)),
                         OpCode::False => self.stack.push(Value::Boolean(false)),
+                        OpCode::Not => {
+                            match self.stack.pop()? {
+                                Value::Boolean(v) => self.stack.push(Value::Boolean(!v)),
+                                _ => bail!(VmError::new("Attempted not on a non-bool value", (instruction.clone(), offset, src_line_number)))
+                            }
+                        }
                     }
                 },
                 None => break

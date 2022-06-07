@@ -61,6 +61,7 @@ impl Compiler {
         self.parse_precedence(&Precedence::Unary)?;
 
         match operator_type {
+            TokenType::Bang => self.writer.write_op_code(OpCode::Not, line as i32),
             TokenType::Minus => self.writer.write_op_code(OpCode::Negate, line as i32),
             _ => {}
         }
@@ -235,7 +236,7 @@ impl Compiler {
         table.add(&TokenType::Slash, None, Some(Self::binary), Precedence::Factor);
         table.add(&TokenType::Star, None, Some(Self::binary), Precedence::Factor);
 
-        table.add_null(&TokenType::Bang);
+        table.add(&TokenType::Bang, Some(Self::unary), None, Precedence::Factor);
         table.add_null(&TokenType::BangEqual);
         table.add_null(&TokenType::Equal);
         table.add_null(&TokenType::EqualEqual);
