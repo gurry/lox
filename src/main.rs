@@ -78,8 +78,11 @@ fn run(source: String, trace: bool, disassemble: bool) {
     if disassemble {
         let mut disassembler = Disassembler::new();
         match disassembler.disassemble(&chunk, "Chunk") {
-            Err(e) => println!("Disassembly failed: {}", e),
-            _ => {}
+            Ok(_) => println!(),
+            Err(e) => {
+                println!("Disassembly failed: {}", e);
+                return;
+            }
         }
     } 
 
