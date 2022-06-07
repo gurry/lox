@@ -3,7 +3,7 @@ use std::{fmt::Display, collections::HashMap, rc::Rc};
 
 use anyhow::{Result, bail, Context};
 use thiserror::Error;
-use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk, instruction::{OpCode, InstructionWriter}};
+use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk, instruction::{OpCode, InstructionWriter}, value::Value};
 
 pub struct Compiler{
     scanner: Scanner,
@@ -97,6 +97,7 @@ impl Compiler {
         let (token, lexeme) = self.prev()?;
         let num = lexeme.parse::<f64>()
                 .context(format!("Failed to parse '{}' as number", lexeme))?;
+        let num = Value::Number(num);
         self.writer.write_const(num, token.line as i32)
     }
 

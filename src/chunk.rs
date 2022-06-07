@@ -1,10 +1,12 @@
 use anyhow::{Result, anyhow};
 
+use crate::value::Value;
+
 #[derive(Debug)]
 pub struct Chunk {
     code: Vec<u8>,
     src_line_numbers: Vec<i32>,
-    constants: Vec<f64>
+    constants: Vec<Value>
 }
 
 impl Chunk {
@@ -33,12 +35,12 @@ impl Chunk {
         self.src_line_numbers.push(src_line_number);
     }
 
-    pub fn add_constant(&mut self, constant: f64) -> u8 {
+    pub fn add_constant(&mut self, constant: Value) -> u8 {
         self.constants.push(constant);
         (self.constants.len() - 1) as u8
     }
 
-    pub fn get_constant(&self, index: usize) -> Result<f64> {
+    pub fn get_constant(&self, index: usize) -> Result<Value> {
         if index >= self.constants.len() {
             return Err(anyhow!("Index {} is out range", index));
         }

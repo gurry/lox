@@ -5,10 +5,11 @@ use crate::disassembler::Disassembler;
 use crate::instruction::{InstructionReader, OpCode};
 use crate::chunk::Chunk;
 use crate::stack::Stack;
+use crate::value::Value;
 
 #[derive(Debug)]
 pub struct Vm {
-    stack: Stack<f64>,
+    stack: Stack<Value>,
     trace: bool
 }
 
@@ -51,8 +52,12 @@ impl Vm {
                             return Ok(())
                         },
                         OpCode::Negate => {
-                            let value = self.stack.pop()?;
-                            self.stack.push(-value)
+                            let negated_value = match self.stack.pop()? {
+                                Value::Number(n) => Value::Number(-n),
+                                _ => bail!("Attempt to negate a non-numeric value")
+                            };
+
+                            self.stack.push(negated_value)
                         },
                         OpCode::Add => self.binary_op(|a, b| a + b)?,
                         OpCode::Subtract => self.binary_op(|a, b| a - b)?,
@@ -70,7 +75,12 @@ impl Vm {
     fn binary_op<O: FnOnce(f64, f64) -> f64>(&mut self, op: O) -> Result<()> {
         let b = self.stack.pop()?;
         let a = self.stack.pop()?;
-        let res = op(a, b);
+
+        let res = match (a, b) {
+            (Value::Number(a), Value::Number(b)) => Value::Number(op(a, b)),
+            _ => bail!("Attempted binary arithmetic operation on non-numeric operand")
+        };
+
         self.stack.push(res);
 
         Ok(())

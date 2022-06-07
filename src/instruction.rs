@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::chunk::Chunk;
+use crate::{chunk::Chunk, value::Value};
 use anyhow::{Result, bail};
 
 #[derive(Debug)]
@@ -45,7 +45,7 @@ impl InstructionWriter {
         self.chunk
     }
 
-    pub fn write_const(&mut self, value: f64, src_line_number: i32) -> Result<()> {
+    pub fn write_const(&mut self, value: Value, src_line_number: i32) -> Result<()> {
         let const_index = self.chunk.add_constant(value);
         if const_index > u8::MAX {
             bail!("Too many costants in chunk")
@@ -97,7 +97,7 @@ impl<'a> InstructionReader<'a> {
     }
 
 
-    pub fn get_const(&self, index: usize) -> Result<f64> {
+    pub fn get_const(&self, index: usize) -> Result<Value> {
         self.chunk.get_constant(index)
     }
 }

@@ -13,6 +13,7 @@ mod instruction;
 mod stack;
 mod scanner;
 mod compiler;
+mod value;
 
 
 #[derive(Debug, StructOpt)]
