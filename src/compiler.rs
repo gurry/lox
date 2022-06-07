@@ -1,5 +1,5 @@
 use core::panic;
-use std::fmt::Display;
+use std::{fmt::Display, collections::HashMap};
 
 use anyhow::{Result, bail, Context};
 use thiserror::Error;
@@ -11,12 +11,14 @@ pub struct Compiler{
     current_token: Option<Token>,
     prev_token: Option<Token>,
     errors: Vec<CompileError>,
-    panic_mode: bool
+    panic_mode: bool,
+    parse_rules: ParseRuleTable
 }
 
 impl Compiler {
     pub fn new(source: String) -> Self {
-        Self { scanner: Scanner::new(source), writer: InstructionWriter::with_new_chunk(), current_token: None, prev_token: None, errors: Vec::new(), panic_mode: false }
+        let parse_rules = Self::set_up_parse_rules();
+        Self { scanner: Scanner::new(source), writer: InstructionWriter::with_new_chunk(), current_token: None, prev_token: None, errors: Vec::new(), panic_mode: false, parse_rules }
     }
 
     pub fn compile(mut self) -> Result<Chunk> {
@@ -41,7 +43,7 @@ impl Compiler {
     } 
 
     fn expression(&mut self) -> Result<()> {
-        self.parse_precedence(Precedence::Assignment)
+        self.parse_precedence(&Precedence::Assignment)
     }
 
     fn grouping(&mut self) -> Result<()> {
@@ -56,7 +58,7 @@ impl Compiler {
         let operator_type = prev_token.token_type.clone();
         let line = prev_token.line;
 
-        self.parse_precedence(Precedence::Unary);
+        self.parse_precedence(&Precedence::Unary)?;
 
         match operator_type {
             TokenType::Minus => self.writer.write_op_code(OpCode::Negate, line as i32),
@@ -72,7 +74,8 @@ impl Compiler {
         let parse_rule = self.get_rule(&operator_type);
         let line = prev_token.line;
 
-        self.parse_precedence((parse_rule.precedence as i32 + 1).into());
+        let higher_precedence = parse_rule.precedence.higher();
+        self.parse_precedence(&higher_precedence)?;
 
         match operator_type {
             TokenType::Plus => self.writer.write_op_code(OpCode::Add, line as i32),
@@ -85,21 +88,41 @@ impl Compiler {
         Ok(())
     }
 
-    fn get_rule(&self, operator_type: &TokenType) -> ParseRule {
-        todo!()
+    fn get_rule(&self, operator_type: &TokenType) -> &ParseRule {
+        self.parse_rules.get(operator_type)
+            .expect(format!("No parse rule found for operator {:?}", operator_type).as_str())
     }
 
     fn number(&mut self) -> Result<()> {
-        let (token, _) = self.prev()?;
+        let (token, lexeme) = self.prev()?;
         let num = match token.token_type {
-            TokenType::Number(n) => n,
+            TokenType::Number => {
+                lexeme.parse::<f64>()
+                    .context(format!("Failed to parse '{}' as number", lexeme))?
+            },
             _ => bail!("Expected token type Num but found some other type")
         };
         self.writer.write_const(num, token.line as i32)
     }
 
-    fn parse_precedence(&mut self, precedence: Precedence) -> Result<()> {
-        todo!()
+    fn parse_precedence(&mut self, precedence: &Precedence) -> Result<()> {
+        self.advance();
+
+        let rule = self.prev_rule()?;
+        rule.call_prefix(self,"Expected expression")?;
+
+        loop {
+            let curr_rule = self.current_rule()?;
+            if precedence.is_greater_then(&curr_rule.precedence) {
+                break;
+            }
+            self.advance();
+
+            let rule = self.prev_rule()?;
+            rule.call_infix(self,"Expected expression")?;
+        }
+
+        Ok(())
     }
 
     fn advance(&mut self) {
@@ -131,6 +154,21 @@ impl Compiler {
             self.push_current_parse_error(format!("Expected {:?} but no current token", token_type))
         }
         
+    }
+
+    fn current_rule(&self) -> Result<&ParseRule> {
+        let (current_token, _) = self.current()?;
+        Ok(self.get_token_rule(current_token))
+    }
+ 
+    fn prev_rule(&self) -> Result<&ParseRule> {
+        let (prev_token, _) = self.prev()?;
+        Ok(self.get_token_rule(prev_token))
+    }
+
+    fn get_token_rule(&self, token: &Token) -> &ParseRule {
+        let operator_type = token.token_type.clone();
+        self.get_rule(&operator_type)
     }
 
     fn current(&self) -> Result<(&Token, &str)> {
@@ -173,10 +211,104 @@ impl Compiler {
             self.panic_mode = true;
         }
     }
+
+    fn set_up_parse_rules() -> ParseRuleTable {
+        let mut table = ParseRuleTable::new();
+
+        table.add(&TokenType::LeftParen, Some(Self::grouping), None, Precedence::None);
+        table.add(&TokenType::Minus, Some(Self::unary), Some(Self::binary), Precedence::Term);
+        table.add(&TokenType::Plus, None, Some(Self::binary), Precedence::Term);
+        table.add(&TokenType::Slash, None, Some(Self::binary), Precedence::Factor);
+        table.add(&TokenType::Star, None, Some(Self::binary), Precedence::Factor);
+        table.add(&TokenType::Number, Some(Self::number), None, Precedence::None);
+
+        table
+    } 
 }
 
+struct ParseRuleTable {
+    lookup: HashMap<TokenType, ParseRule> 
+}
+
+impl ParseRuleTable {
+    pub fn new() -> Self {
+        Self { lookup: HashMap::new() }
+    }
+
+    pub fn add(&mut self, token_type: &TokenType, prefix: Option<ParseFn>, infix: Option<ParseFn>, precedence: Precedence) {
+        self.lookup.insert(token_type.clone(), ParseRule::new(prefix, infix, precedence));
+    }
+
+    pub fn get(&self, token_type: &TokenType) -> Option<&ParseRule> {
+        self.lookup.get(token_type)
+    }
+}
+
+type ParseFn = fn(&mut Compiler) -> Result<()>;
+
 struct ParseRule {
+    pub prefix: Option<ParseFn>,
+    pub infix: Option<ParseFn>,
     pub precedence: Precedence
+}
+
+impl ParseRule {
+    fn new(prefix: Option<ParseFn>, infix: Option<ParseFn>, precedence: Precedence) -> Self {
+        Self { prefix, infix, precedence }
+    }
+
+    pub fn call_prefix<M: Into<String>>(&self, c: &mut Compiler, msg: M) -> Result<()> {
+        Self::call(&self.prefix, c, msg)
+    }
+
+    pub fn call_infix<M: Into<String>>(&self, c: &mut Compiler, msg: M) -> Result<()> {
+        Self::call(&self.infix, c, msg)
+    }
+
+    fn call<M: Into<String>>(callback: &Option<ParseFn>, c: &mut Compiler, msg: M) -> Result<()> {
+        match callback {
+            Some(f) => f(c),
+            None => bail!(msg.into())
+        }
+    }
+}
+
+
+
+#[derive(Clone, Debug)]
+#[repr(i32)]
+enum Precedence {
+  None,
+  Assignment,  // =
+  Or,          // or
+  And,         // and
+  Equality,    // == !=
+  Comparison,  // < > <= >=
+  Term,        // + -
+  Factor,      // * /
+  Unary,       // ! -
+  Call,        // . ()
+  Primary
+}
+
+impl Precedence {
+    pub fn higher(&self) -> Precedence {
+        let clone = self.clone();
+        (clone as i32 + 1).into()
+    }
+
+    pub fn is_greater_then(&self, other: &Precedence) -> bool {
+        self.clone() as i32 > other.clone() as i32
+    }
+}
+
+impl From<i32> for Precedence {
+    fn from(i: i32) -> Self {
+        if i > Precedence::Primary as i32 {
+            panic!("Failed to convert {} to Precedence", i);
+        }
+        unsafe { std::mem::transmute(i) }
+    }
 }
 
 #[derive(Error, Clone, Debug)]
@@ -212,26 +344,3 @@ impl CompileError {
     }
 }   
 
-#[repr(i32)]
-enum Precedence {
-  None,
-  Assignment,  // =
-  Or,          // or
-  And,         // and
-  Equality,    // == !=
-  Comparison,  // < > <= >=
-  Term,        // + -
-  Factor,      // * /
-  Unary,       // ! -
-  Call,        // . ()
-  Primary
-}
-
-impl From<i32> for Precedence {
-    fn from(i: i32) -> Self {
-        if i > Precedence::Primary as i32 {
-            panic!("Failed to convert {} to Precedence", i);
-        }
-        unsafe { std::mem::transmute(i) }
-    }
-}

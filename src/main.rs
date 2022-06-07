@@ -47,7 +47,7 @@ fn run_prompt() -> Result<()> {
 }
 
 fn run(source: String) -> Result<()> {
-    let mut compiler = Compiler::new(source);
+    let compiler = Compiler::new(source);
     let mut chunk = match compiler.compile() {
         Ok(c) => c,
         Err(e) => {

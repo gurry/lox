@@ -1,5 +1,5 @@
 use thiserror::Error;
-use anyhow::{Result, bail, Context};
+use anyhow::{Result, bail};
 
 #[derive(Error, Clone, Debug)]
 #[error("[{line}]: {message}")]
@@ -136,10 +136,7 @@ impl Scanner {
             }
         }
     
-        let substr = self.current_lexeme();
-        let value =  substr.parse::<f64>()
-            .context(format!("Failed to parse '{}' as number", substr))?;
-        Ok(TokenType::Number(value))
+        Ok(TokenType::Number)
     }
 
     fn identifier(&mut self) -> TokenType {
@@ -245,7 +242,7 @@ pub struct Token {
     pub line: usize
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TokenType {
     LeftParen, RightParen, LeftBrace, RightBrace, Comma,
     Dot, Minus, Plus, Semicolon, Slash, Star,
@@ -253,7 +250,7 @@ pub enum TokenType {
     Bang, BangEqual, Equal, EqualEqual, Greater, GreaterEqual,
     Less, LessEqual,
 
-    Identifier, String, Number(f64),
+    Identifier, String, Number,
 
     And, Class, Else, False, Fun, For, If, Nil, Or, Print,
     Return, Super, This, True, Var, While,
