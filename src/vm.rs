@@ -38,7 +38,9 @@ impl Vm {
                                 Some(index) => {
                                     let value = reader.get_const(index as usize)
                                         .context(VmError::new(format!("Failed to get constant at index {}", index)))?;
-                                    println!("{}", value);
+                                    if self.trace {
+                                        println!("--> Const: {}", value);
+                                    }
                                     self.stack.push(value);
                                 },
                                 None => bail!("Opcode {} has no operand", instruction.op_code),
