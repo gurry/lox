@@ -210,11 +210,48 @@ impl Compiler {
         let mut table = ParseRuleTable::new();
 
         table.add(&TokenType::LeftParen, Some(Self::grouping), None, Precedence::None);
+        table.add_null(&TokenType::RightParen);
+        table.add_null(&TokenType::LeftBrace);
+        table.add_null(&TokenType::RightBrace);
+        table.add_null(&TokenType::Comma);
+        table.add_null(&TokenType::Dot);
         table.add(&TokenType::Minus, Some(Self::unary), Some(Self::binary), Precedence::Term);
         table.add(&TokenType::Plus, None, Some(Self::binary), Precedence::Term);
+        table.add_null(&TokenType::Semicolon);
         table.add(&TokenType::Slash, None, Some(Self::binary), Precedence::Factor);
         table.add(&TokenType::Star, None, Some(Self::binary), Precedence::Factor);
+
+        table.add_null(&TokenType::Bang);
+        table.add_null(&TokenType::BangEqual);
+        table.add_null(&TokenType::Equal);
+        table.add_null(&TokenType::EqualEqual);
+        table.add_null(&TokenType::Greater);
+        table.add_null(&TokenType::GreaterEqual);
+        table.add_null(&TokenType::Less);
+        table.add_null(&TokenType::LessEqual);
+
+        table.add_null(&TokenType::Identifier);
         table.add(&TokenType::Number, Some(Self::number), None, Precedence::None);
+
+
+        table.add_null(&TokenType::And);
+        table.add_null(&TokenType::Class);
+        table.add_null(&TokenType::Else);
+        table.add_null(&TokenType::False);
+        table.add_null(&TokenType::Fun);
+        table.add_null(&TokenType::For);
+        table.add_null(&TokenType::If);
+        table.add_null(&TokenType::Nil);
+        table.add_null(&TokenType::Or);
+        table.add_null(&TokenType::Print);
+        table.add_null(&TokenType::Return);
+        table.add_null(&TokenType::Super);
+        table.add_null(&TokenType::This);
+        table.add_null(&TokenType::True);
+        table.add_null(&TokenType::Var);
+        table.add_null(&TokenType::While);
+
+        table.add_null(&TokenType::Eof);
 
         table
     } 
@@ -231,6 +268,10 @@ impl ParseRuleTable {
 
     pub fn add(&mut self, token_type: &TokenType, prefix: Option<ParseFn>, infix: Option<ParseFn>, precedence: Precedence) {
         self.lookup.insert(token_type.clone(), Rc::new(ParseRule::new(prefix, infix, precedence)));
+    }
+
+    pub fn add_null(&mut self, token_type: &TokenType) {
+        self.add(token_type, None, None,Precedence::None)
     }
 
     pub fn get(&self, token_type: &TokenType) -> Option<Rc<ParseRule>> {
