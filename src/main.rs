@@ -39,7 +39,8 @@ fn main() -> Result<()> {
 
 fn run_file(source_file_path: &Path, trace: bool, disassemble: bool) -> Result<()> {
     let source = read_to_string(source_file_path).context("Failed to read source file")?;
-    run(source, trace, disassemble)
+    run(source, trace, disassemble);
+    Ok(())
 }
 
 fn run_prompt(trace: bool, disassemble: bool) -> Result<()> {
@@ -49,12 +50,12 @@ fn run_prompt(trace: bool, disassemble: bool) -> Result<()> {
         let mut line = String::new();
         let stdin = io::stdin();
         stdin.lock().read_line(&mut line).context("stdin failed")?;
-        run(line, trace, disassemble)?;
+        run(line, trace, disassemble);
         println!("");
     }
 }
 
-fn run(source: String, trace: bool, disassemble: bool) -> Result<()> {
+fn run(source: String, trace: bool, disassemble: bool) {
     let compiler = Compiler::new(source);
     let mut chunk = match compiler.compile() {
         Ok(c) => c,
@@ -65,20 +66,26 @@ fn run(source: String, trace: bool, disassemble: bool) -> Result<()> {
                         println!("{}", e);
                     }
                 },
-                None => println!("Error: {}", e),
+                None => {
+                    println!("Error occured: {}", e);
+                }
             };
 
-            bail!("Compilation failed");
+            return;
         }
     };
 
     if disassemble {
         let mut disassembler = Disassembler::new();
-        disassembler.disassemble(&chunk, "Chunk");
+        match disassembler.disassemble(&chunk, "Chunk") {
+            Err(e) => println!("Disassembly failed: {}", e),
+            _ => {}
+        }
     } else {
         let mut vm = Vm::new(trace);
-        vm.run(&mut chunk).context("VM failed")?;
+        match vm.run(&mut chunk) {
+            Err(e) => println!("Code execution failed: {}", e),
+            _ => {}
+        };
     }
-
-    Ok(())
 }
