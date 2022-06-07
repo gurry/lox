@@ -127,6 +127,9 @@ pub enum OpCode {
     Subtract = 4,
     Multiply = 5,
     Divide = 6,
+    Nil = 7,
+    True = 8,
+    False = 9
 }
 
 impl Into<u8> for OpCode {
@@ -139,7 +142,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::Divide as u8 {
+        if value > OpCode::False as u8 {
             bail!("Unknown opcode {}", value);
         }
 

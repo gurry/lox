@@ -101,6 +101,19 @@ impl Compiler {
         self.writer.write_const(num, token.line as i32)
     }
 
+
+    fn literal(&mut self) -> Result<()> {
+        let (token, _) = self.prev()?;
+        match token.token_type {
+            TokenType::Nil => self.writer.write_op_code(OpCode::Nil, token.line as i32),
+            TokenType::True => self.writer.write_op_code(OpCode::True, token.line as i32),
+            TokenType::False => self.writer.write_op_code(OpCode::False, token.line as i32),
+            _ => {}
+        };
+
+        Ok(())
+    }
+
     fn parse_precedence(&mut self, precedence: &Precedence) -> Result<()> {
         self.advance();
 
@@ -238,17 +251,17 @@ impl Compiler {
         table.add_null(&TokenType::And);
         table.add_null(&TokenType::Class);
         table.add_null(&TokenType::Else);
-        table.add_null(&TokenType::False);
+        table.add(&TokenType::False, Some(Self::literal), None, Precedence::None);
         table.add_null(&TokenType::Fun);
         table.add_null(&TokenType::For);
         table.add_null(&TokenType::If);
-        table.add_null(&TokenType::Nil);
+        table.add(&TokenType::Nil, Some(Self::literal), None, Precedence::None);
         table.add_null(&TokenType::Or);
         table.add_null(&TokenType::Print);
         table.add_null(&TokenType::Return);
         table.add_null(&TokenType::Super);
         table.add_null(&TokenType::This);
-        table.add_null(&TokenType::True);
+        table.add(&TokenType::True, Some(Self::literal), None, Precedence::None);
         table.add_null(&TokenType::Var);
         table.add_null(&TokenType::While);
 

@@ -65,6 +65,9 @@ impl Vm {
                         OpCode::Subtract => self.binary_op(|a, b| a - b)?,
                         OpCode::Multiply => self.binary_op(|a, b| a * b)?,
                         OpCode::Divide => self.binary_op(|a, b| a / b)?,
+                        OpCode::Nil => self.stack.push(Value::Nil),
+                        OpCode::True => self.stack.push(Value::Boolean(true)),
+                        OpCode::False => self.stack.push(Value::Boolean(false)),
                     }
                 },
                 None => break
