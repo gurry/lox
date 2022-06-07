@@ -1,3 +1,4 @@
+use core::panic;
 use std::fmt::Display;
 
 use anyhow::{Result, bail, Context};
@@ -40,12 +41,52 @@ impl Compiler {
     } 
 
     fn expression(&mut self) -> Result<()> {
-        self.advance();
-        let (prev, _) = self.prev()?;
-        match prev.token_type {
-            TokenType::Number(n) => self.number(),
-            _ => Ok(()) 
+        self.parse_precedence(Precedence::Assignment)
+    }
+
+    fn grouping(&mut self) -> Result<()> {
+        self.expression()?;
+        self.consume(&TokenType::RightParen, "Expected ')'");
+        Ok(())
+    }
+
+
+    fn unary(&mut self) -> Result<()> {
+        let (prev_token, _) = self.prev()?;
+        let operator_type = prev_token.token_type.clone();
+        let line = prev_token.line;
+
+        self.parse_precedence(Precedence::Unary);
+
+        match operator_type {
+            TokenType::Minus => self.writer.write_op_code(OpCode::Negate, line as i32),
+            _ => {}
         }
+
+        Ok(())
+    }
+
+    fn binary(&mut self) -> Result<()> {
+        let (prev_token, _) = self.prev()?;
+        let operator_type = prev_token.token_type.clone();
+        let parse_rule = self.get_rule(&operator_type);
+        let line = prev_token.line;
+
+        self.parse_precedence((parse_rule.precedence as i32 + 1).into());
+
+        match operator_type {
+            TokenType::Plus => self.writer.write_op_code(OpCode::Add, line as i32),
+            TokenType::Minus => self.writer.write_op_code(OpCode::Subtract, line as i32),
+            TokenType::Star => self.writer.write_op_code(OpCode::Multiply, line as i32),
+            TokenType::Slash => self.writer.write_op_code(OpCode::Divide, line as i32),
+            _ => {},
+        }
+
+        Ok(())
+    }
+
+    fn get_rule(&self, operator_type: &TokenType) -> ParseRule {
+        todo!()
     }
 
     fn number(&mut self) -> Result<()> {
@@ -57,22 +98,8 @@ impl Compiler {
         self.writer.write_const(num, token.line as i32)
     }
 
-    fn current(&self) -> Result<(&Token, &str)> {
-        let current_token = self.current_token.as_ref()
-            .context("current token is null")?;
-        let lexeme_str = self.lexeme_str(current_token);
-        Ok((&current_token, lexeme_str))
-    }
-
-    fn prev(&self) -> Result<(&Token, &str)> {
-        let prev_token = self.prev_token.as_ref()
-            .context("prev token is null")?;
-        let lexeme_str = self.lexeme_str(prev_token);
-        Ok((&prev_token, lexeme_str))
-    }
-
-    fn lexeme_str(&self, token: &Token) -> &str {
-        self.scanner.get_lexeme_str(&token.lexeme).expect("Current lexeme out of source boundary")
+    fn parse_precedence(&mut self, precedence: Precedence) -> Result<()> {
+        todo!()
     }
 
     fn advance(&mut self) {
@@ -106,6 +133,25 @@ impl Compiler {
         
     }
 
+    fn current(&self) -> Result<(&Token, &str)> {
+        let current_token = self.current_token.as_ref()
+            .context("current token is null")?;
+        let lexeme_str = self.lexeme_str(current_token);
+        Ok((&current_token, lexeme_str))
+    }
+
+    fn prev(&self) -> Result<(&Token, &str)> {
+        let prev_token = self.prev_token.as_ref()
+            .context("prev token is null")?;
+        let lexeme_str = self.lexeme_str(prev_token);
+        Ok((&prev_token, lexeme_str))
+    }
+
+    fn lexeme_str(&self, token: &Token) -> &str {
+        self.scanner.get_lexeme_str(&token.lexeme).expect("Current lexeme out of source boundary")
+    }
+
+
     fn push_current_parse_error<M: Into<String>>(&mut self, msg: M) {
         let current_token = self.current_token.as_ref().expect("No current token by trying to push parse error");
         self.push_parse_error(msg, current_token.clone())
@@ -127,6 +173,10 @@ impl Compiler {
             self.panic_mode = true;
         }
     }
+}
+
+struct ParseRule {
+    pub precedence: Precedence
 }
 
 #[derive(Error, Clone, Debug)]
@@ -161,3 +211,27 @@ impl CompileError {
         Self::Parse { msg: msg.into(), lexeme, line }
     }
 }   
+
+#[repr(i32)]
+enum Precedence {
+  None,
+  Assignment,  // =
+  Or,          // or
+  And,         // and
+  Equality,    // == !=
+  Comparison,  // < > <= >=
+  Term,        // + -
+  Factor,      // * /
+  Unary,       // ! -
+  Call,        // . ()
+  Primary
+}
+
+impl From<i32> for Precedence {
+    fn from(i: i32) -> Self {
+        if i > Precedence::Primary as i32 {
+            panic!("Failed to convert {} to Precedence", i);
+        }
+        unsafe { std::mem::transmute(i) }
+    }
+}

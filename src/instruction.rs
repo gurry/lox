@@ -56,8 +56,8 @@ impl InstructionWriter {
         Ok(())
     }
 
-    pub fn write_op_code(&mut self, op_code: OpCode, src_line_number: i32)  {
-        self.chunk.write(op_code, src_line_number);
+    pub fn write_op_code<I: Into<i32>>(&mut self, op_code: OpCode, src_line_number: I)  {
+        self.chunk.write(op_code, src_line_number.into());
     }
 }
 
