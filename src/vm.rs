@@ -86,11 +86,11 @@ impl Vm {
         Ok(())
     }
 
-    fn binary_op<O: FnOnce(Value, Value) -> Result<Value>>(&mut self, op: O) -> Result<()> {
+    fn binary_op<O: FnOnce(&Value, &Value) -> Result<Value>>(&mut self, op: O) -> Result<()> {
         let b = self.stack.pop()?;
         let a = self.stack.pop()?;
 
-        let res = op(a, b)?;
+        let res = op(&a, &b)?;
 
         self.stack.push(res);
 
@@ -101,7 +101,7 @@ impl Vm {
     fn num_binary_op<O: FnOnce(f64, f64) -> f64>(&mut self, op: O) -> Result<()> {
         self.binary_op(|a, b| {
             match (a, b) {
-                (Value::Number(a), Value::Number(b)) => Ok(Value::Number(op(a, b))),
+                (Value::Number(a), Value::Number(b)) => Ok(Value::Number(op(*a, *b))),
                 _ => bail!("Numberic operation attempted on non-numbeic values")
             }
         })
