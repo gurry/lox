@@ -1,5 +1,5 @@
 use core::panic;
-use std::{fmt::Display, collections::HashMap};
+use std::{fmt::Display, collections::HashMap, rc::Rc};
 
 use anyhow::{Result, bail, Context};
 use thiserror::Error;
@@ -88,38 +88,32 @@ impl Compiler {
         Ok(())
     }
 
-    fn get_rule(&self, operator_type: &TokenType) -> &ParseRule {
+    fn get_rule(&self, operator_type: &TokenType) -> Rc<ParseRule> {
         self.parse_rules.get(operator_type)
             .expect(format!("No parse rule found for operator {:?}", operator_type).as_str())
     }
 
     fn number(&mut self) -> Result<()> {
         let (token, lexeme) = self.prev()?;
-        let num = match token.token_type {
-            TokenType::Number => {
-                lexeme.parse::<f64>()
-                    .context(format!("Failed to parse '{}' as number", lexeme))?
-            },
-            _ => bail!("Expected token type Num but found some other type")
-        };
+        let num = lexeme.parse::<f64>()
+                .context(format!("Failed to parse '{}' as number", lexeme))?;
         self.writer.write_const(num, token.line as i32)
     }
 
     fn parse_precedence(&mut self, precedence: &Precedence) -> Result<()> {
         self.advance();
 
-        let rule = self.prev_rule()?;
-        rule.call_prefix(self,"Expected expression")?;
+        self.prev_rule()?.call_prefix(self,"Expected expression")?;
 
         loop {
             let curr_rule = self.current_rule()?;
             if precedence.is_greater_then(&curr_rule.precedence) {
                 break;
             }
+
             self.advance();
 
-            let rule = self.prev_rule()?;
-            rule.call_infix(self,"Expected expression")?;
+            self.prev_rule()?.call_infix(self,"Expected expression")?;
         }
 
         Ok(())
@@ -156,17 +150,17 @@ impl Compiler {
         
     }
 
-    fn current_rule(&self) -> Result<&ParseRule> {
+    fn current_rule(&self) -> Result<Rc<ParseRule>> {
         let (current_token, _) = self.current()?;
         Ok(self.get_token_rule(current_token))
     }
  
-    fn prev_rule(&self) -> Result<&ParseRule> {
+    fn prev_rule(&self) -> Result<Rc<ParseRule>> {
         let (prev_token, _) = self.prev()?;
         Ok(self.get_token_rule(prev_token))
     }
 
-    fn get_token_rule(&self, token: &Token) -> &ParseRule {
+    fn get_token_rule(&self, token: &Token) -> Rc<ParseRule> {
         let operator_type = token.token_type.clone();
         self.get_rule(&operator_type)
     }
@@ -227,7 +221,7 @@ impl Compiler {
 }
 
 struct ParseRuleTable {
-    lookup: HashMap<TokenType, ParseRule> 
+    lookup: HashMap<TokenType, Rc<ParseRule>> 
 }
 
 impl ParseRuleTable {
@@ -236,11 +230,11 @@ impl ParseRuleTable {
     }
 
     pub fn add(&mut self, token_type: &TokenType, prefix: Option<ParseFn>, infix: Option<ParseFn>, precedence: Precedence) {
-        self.lookup.insert(token_type.clone(), ParseRule::new(prefix, infix, precedence));
+        self.lookup.insert(token_type.clone(), Rc::new(ParseRule::new(prefix, infix, precedence)));
     }
 
-    pub fn get(&self, token_type: &TokenType) -> Option<&ParseRule> {
-        self.lookup.get(token_type)
+    pub fn get(&self, token_type: &TokenType) -> Option<Rc<ParseRule>> {
+       self.lookup.get(token_type).map(|p| p.clone())
     }
 }
 
