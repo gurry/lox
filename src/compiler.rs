@@ -40,10 +40,11 @@ impl Compiler {
     } 
 
     fn expression(&mut self) -> Result<()> {
+        self.advance();
         let (current, _) = self.current()?;
         match current.token_type {
             TokenType::Number(n) => self.number(),
-            _ => bail!("TODO")
+            _ => Ok(()) 
         }
     }
 

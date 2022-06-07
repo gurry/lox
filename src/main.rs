@@ -51,10 +51,15 @@ fn run(source: String) -> Result<()> {
     let mut chunk = match compiler.compile() {
         Ok(c) => c,
         Err(e) => {
-            let errors = &e.downcast_ref::<CompileErrorCollection>().unwrap().errors;
-            for e in errors {
-                println!("{}", e);
-            }
+           match &e.downcast_ref::<CompileErrorCollection>() {
+                Some(ce) => {
+                    for e in &ce.errors {
+                        println!("{}", e);
+                    }
+                },
+                None => println!("Error: {}", e),
+            };
+
             bail!("Compilation failed");
         }
     };
