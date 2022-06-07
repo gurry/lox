@@ -2,6 +2,7 @@ use std::{path::{PathBuf, Path}, fs::read_to_string, io::{self, Write, BufRead}}
 
 use anyhow::{Context, Result, bail};
 use compiler::{Compiler, CompileErrorCollection};
+use disassembler::Disassembler;
 use structopt::StructOpt;
 use vm::Vm;
 
@@ -22,35 +23,38 @@ struct Options {
     source_file_path: Option<PathBuf>,
 
     #[structopt(short, long)]
-    trace: bool
+    trace: bool,
+
+    #[structopt(short="d", long="dasm")]
+    disassemble: bool
 }
 
 fn main() -> Result<()> {
-    let Options { source_file_path, trace } = Options::from_args();
+    let Options { source_file_path, trace , disassemble} = Options::from_args();
     match source_file_path {
-        Some(path) => run_file(&path, trace),
-        None => run_prompt(trace)
+        Some(path) => run_file(&path, trace, disassemble),
+        None => run_prompt(trace, disassemble)
     }
 }
 
-fn run_file(source_file_path: &Path, trace: bool) -> Result<()> {
+fn run_file(source_file_path: &Path, trace: bool, disassemble: bool) -> Result<()> {
     let source = read_to_string(source_file_path).context("Failed to read source file")?;
-    run(source, trace)
+    run(source, trace, disassemble)
 }
 
-fn run_prompt(trace: bool) -> Result<()> {
+fn run_prompt(trace: bool, disassemble: bool) -> Result<()> {
     loop {
         print!("> ");
         io::stdout().flush().context("Failed to flush stdout")?;
         let mut line = String::new();
         let stdin = io::stdin();
         stdin.lock().read_line(&mut line).context("stdin failed")?;
-        run(line, trace)?;
+        run(line, trace, disassemble)?;
         println!("");
     }
 }
 
-fn run(source: String, trace: bool) -> Result<()> {
+fn run(source: String, trace: bool, disassemble: bool) -> Result<()> {
     let compiler = Compiler::new(source);
     let mut chunk = match compiler.compile() {
         Ok(c) => c,
@@ -68,8 +72,13 @@ fn run(source: String, trace: bool) -> Result<()> {
         }
     };
 
-    let mut vm = Vm::new(trace);
-    vm.run(&mut chunk).context("VM failed")?;
+    if disassemble {
+        let mut disassembler = Disassembler::new();
+        disassembler.disassemble(&chunk, "Chunk");
+    } else {
+        let mut vm = Vm::new(trace);
+        vm.run(&mut chunk).context("VM failed")?;
+    }
 
     Ok(())
 }
