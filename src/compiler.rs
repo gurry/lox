@@ -41,15 +41,15 @@ impl Compiler {
 
     fn expression(&mut self) -> Result<()> {
         self.advance();
-        let (current, _) = self.current()?;
-        match current.token_type {
+        let (prev, _) = self.prev()?;
+        match prev.token_type {
             TokenType::Number(n) => self.number(),
             _ => Ok(()) 
         }
     }
 
     fn number(&mut self) -> Result<()> {
-        let (token, _) = self.current()?;
+        let (token, _) = self.prev()?;
         let num = match token.token_type {
             TokenType::Number(n) => n,
             _ => bail!("Expected token type Num but found some other type")
@@ -60,8 +60,19 @@ impl Compiler {
     fn current(&self) -> Result<(&Token, &str)> {
         let current_token = self.current_token.as_ref()
             .context("current token is null")?;
-        let lexeme_str = self.scanner.get_lexeme_str(&current_token.lexeme).expect("Current lexeme out of source boundary");
+        let lexeme_str = self.lexeme_str(current_token);
         Ok((&current_token, lexeme_str))
+    }
+
+    fn prev(&self) -> Result<(&Token, &str)> {
+        let prev_token = self.prev_token.as_ref()
+            .context("prev token is null")?;
+        let lexeme_str = self.lexeme_str(prev_token);
+        Ok((&prev_token, lexeme_str))
+    }
+
+    fn lexeme_str(&self, token: &Token) -> &str {
+        self.scanner.get_lexeme_str(&token.lexeme).expect("Current lexeme out of source boundary")
     }
 
     fn advance(&mut self) {
@@ -71,6 +82,7 @@ impl Compiler {
             match self.scanner.scan_next()
             {
                 Ok(token) => {
+                    // println!("Token: {:?}", token);
                     break Some(token)
                 },
                 Err(e) => {
