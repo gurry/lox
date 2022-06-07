@@ -81,11 +81,11 @@ fn run(source: String, trace: bool, disassemble: bool) {
             Err(e) => println!("Disassembly failed: {}", e),
             _ => {}
         }
-    } else {
-        let mut vm = Vm::new(trace);
-        match vm.run(&mut chunk) {
-            Err(e) => println!("Code execution failed: {}", e),
-            _ => {}
-        };
-    }
+    } 
+
+    let mut vm = Vm::new(trace);
+    match vm.run(&mut chunk) {
+        Err(e) => println!("Code execution failed: {}", e),
+        _ => {}
+    };
 }
