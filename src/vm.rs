@@ -17,10 +17,6 @@ impl Vm {
         Self { stack: Stack::new(), trace }
     }
 
-    pub fn new_with_tracing() -> Self {
-        Self::new(true)
-    }
-
     pub fn run(&mut self, chunk: &mut Chunk) -> Result<()> {
         let mut reader = InstructionReader::new(chunk);
         let mut disassembler = Disassembler::new();
