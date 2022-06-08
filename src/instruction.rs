@@ -111,8 +111,9 @@ impl<'a> InstructionReader<'a> {
         let op_code: OpCode = code_byte.try_into()?;
 
         let instruction = match op_code {
-            OpCode::Constant | OpCode::DefineGlobal | OpCode::GetGlobal 
-            | OpCode::SetGlobal => {
+            OpCode::Constant | OpCode::DefineGlobal
+            | OpCode::GetGlobal | OpCode::SetGlobal 
+            | OpCode::GetLocal | OpCode::SetLocal => {
                 let operand1 = self.chunk.read(self.offset)?;
                 self.offset += 1;
                 Instruction::unary(op_code, operand1)
@@ -150,6 +151,8 @@ pub enum OpCode {
     DefineGlobal,
     GetGlobal,
     SetGlobal,
+    GetLocal,
+    SetLocal,
 }
 
 impl Into<u8> for OpCode {
@@ -162,7 +165,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::SetGlobal as u8 {
+        if value > OpCode::SetLocal as u8 {
             bail!("Unknown opcode {}", value);
         }
 

@@ -42,7 +42,9 @@ impl Disassembler {
         self.prev_src_line_number = Some(src_line_number);
 
         match &instruction.op_code {
-            OpCode::Constant | OpCode::DefineGlobal | OpCode::SetGlobal => {
+            OpCode::Constant | OpCode::DefineGlobal 
+            | OpCode::GetGlobal | OpCode::SetGlobal
+            | OpCode::GetLocal | OpCode::SetLocal => {
                 match instruction.operand1 {
                     Some(index) => {
                         let value = reader.get_const(index as usize)?;

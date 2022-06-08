@@ -30,4 +30,23 @@ impl<T> Stack<T> {
 
         Ok(&self.0[index])
     }
+
+
+    pub fn peek_front(&self, pos: usize) -> Result<&T> {
+        if pos  >= self.0.len() {
+            bail!("Stack overflow");
+        }
+
+        Ok(&self.0[pos])
+    }
+
+    pub fn set_front(&mut self, pos: usize, value: T) -> Result<()> {
+        if pos  >= self.0.len() {
+            bail!("Stack overflow");
+        }
+
+        self.0[pos] = value;
+
+        Ok(())
+    }
 }

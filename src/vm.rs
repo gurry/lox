@@ -114,6 +114,16 @@ impl Vm {
                             let new_value = self.stack.peek(0)?.clone();
                             self.globals.insert(global_name, new_value);
                         },
+                        OpCode::GetLocal => {
+                            let slot = Self::get_operand1(&instruction)?;
+                            let val = self.stack.peek_front( slot as usize)?;
+                            self.stack.push(val.clone());
+                        },
+                        OpCode::SetLocal => {
+                            let slot = Self::get_operand1(&instruction)?;
+                            let val = self.stack.peek(0)?;
+                            self.stack.set_front(slot as usize, val.clone())?;
+                        },
                     }
                 },
                 None => break
@@ -133,8 +143,8 @@ impl Vm {
     }
 
     fn get_global_name(&mut self, instruction: &Instruction, reader: &InstructionReader) -> Result<String> {
-        let global_name_index = instruction.operand1
-                                .ok_or(VmError::from_msg(format!("Operand 1 missing on instruction {}", instruction.op_code)))?;
+        let global_name_index = Self::get_operand1(instruction)?;
+
         let constant = reader.get_const(global_name_index as _)
             .context(anyhow!("No global at index {}", global_name_index))?;
         
@@ -142,6 +152,11 @@ impl Vm {
             Value::String(name) => Ok(name),
             _ => bail!(VmError::from_msg(format!("Operand 1 missing on instruction {}", instruction.op_code)))
         }
+    }
+
+    fn get_operand1(instruction: &Instruction) -> Result<u8> {
+        instruction.operand1
+            .ok_or(anyhow!(VmError::from_msg(format!("Operand 1 missing on instruction {}", instruction.op_code))))
     }
 
     fn binary_op<O: FnOnce(&Value, &Value) -> Result<Value>>(&mut self, op: O) -> Result<()> {

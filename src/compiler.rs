@@ -256,6 +256,12 @@ impl Compiler {
         self.locals.push(Local { name, depth: self.scope_depth });
     }
 
+
+    fn resolve_local(&self, name: &str) -> Option<i32> {
+        self.locals.iter().rposition(|l| l.name == name)
+            .map(|i| i as i32)
+    }
+
     fn define_variable(&mut self, index: u8) -> Result<()> {
         if self.scope_depth > 0 {
             return Ok(());
@@ -270,14 +276,20 @@ impl Compiler {
     }
 
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
-        let index = self.identifier_constant(name)?;
         let line = self.prev()?.0.line;
+
+        let (get_op, set_op, operand) = if let Some(local_pos) = self.resolve_local(&name) {
+            (OpCode::GetLocal, OpCode::SetLocal, local_pos as u8)
+        } else {
+            let index = self.identifier_constant(name)?;
+            (OpCode::GetGlobal, OpCode::SetGlobal, index)
+        };
 
         if can_assign && self.matches(&TokenType::Equal) {
             self.expression()?;
-            self.writer.write_op_code_with_operand(OpCode::SetGlobal, index, line as i32);
+            self.writer.write_op_code_with_operand(set_op, operand, line as i32);
         } else {
-            self.writer.write_op_code_with_operand(OpCode::GetGlobal, index, line as i32);
+            self.writer.write_op_code_with_operand(get_op, operand, line as i32);
         }
 
         Ok(())
