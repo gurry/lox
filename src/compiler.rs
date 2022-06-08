@@ -110,14 +110,14 @@ impl Compiler {
         self.parse_precedence(&Precedence::Assignment)
     }
 
-    fn grouping(&mut self) -> Result<()> {
+    fn grouping(&mut self, _can_assign: bool) -> Result<()> {
         self.expression()?;
         self.consume(&TokenType::RightParen, "Expected ')'");
         Ok(())
     }
 
 
-    fn unary(&mut self) -> Result<()> {
+    fn unary(&mut self, _can_assign: bool) -> Result<()> {
         let (prev_token, _) = self.prev()?;
         let operator_type = prev_token.token_type.clone();
         let line = prev_token.line;
@@ -133,7 +133,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn binary(&mut self) -> Result<()> {
+    fn binary(&mut self, _can_assign: bool) -> Result<()> {
         let (prev_token, _) = self.prev()?;
         let operator_type = prev_token.token_type.clone();
         let parse_rule = self.get_rule(&operator_type);
@@ -168,8 +168,8 @@ impl Compiler {
         Ok(())
     }
 
-    fn variable(&mut self) -> Result<()> {
-        self.named_variable(self.prev_lexeme_str()?.to_string())
+    fn variable(&mut self, can_assign: bool) -> Result<()> {
+        self.named_variable(self.prev_lexeme_str()?.to_string(), can_assign)
     }
 
     fn parse_variable(&mut self, msg: &str) -> Result<u8> {
@@ -188,11 +188,11 @@ impl Compiler {
         Ok(self.writer.add_constant(Value::String(s)))
     }
 
-    fn named_variable(&mut self, name: String) -> Result<()> {
+    fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
         let index = self.identifier_constant(name)?;
         let line = self.prev()?.0.line;
 
-        if self.matches(&TokenType::Equal) {
+        if can_assign && self.matches(&TokenType::Equal) {
             self.expression()?;
             self.writer.write_op_code_with_operand(OpCode::SetGlobal, index, line as i32);
         } else {
@@ -202,7 +202,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn number(&mut self) -> Result<()> {
+    fn number(&mut self, _can_assign: bool) -> Result<()> {
         let (token, lexeme) = self.prev()?;
         let num = lexeme.parse::<f64>()
                 .context(format!("Failed to parse '{}' as number", lexeme))?;
@@ -210,7 +210,7 @@ impl Compiler {
         self.writer.write_const(num, token.line as i32)
     }
 
-    fn string(&mut self) -> Result<()> {
+    fn string(&mut self, _can_assign: bool) -> Result<()> {
         let (token, lexeme) = self.prev()?;
         let str_copy = lexeme[1..lexeme.len()-1].to_string();
         let str = Value::String(str_copy);
@@ -218,7 +218,7 @@ impl Compiler {
         self.writer.write_const(str, token.line as i32)
     }
 
-    fn literal(&mut self) -> Result<()> {
+    fn literal(&mut self, _can_assign: bool) -> Result<()> {
         let (token, _) = self.prev()?;
         match token.token_type {
             TokenType::Nil => self.writer.write_op_code(OpCode::Nil, token.line as i32),
@@ -233,7 +233,7 @@ impl Compiler {
     fn parse_precedence(&mut self, precedence: &Precedence) -> Result<()> {
         self.advance();
 
-        self.prev_call_prefix("Expected expression")?;
+        self.prev_call_prefix(precedence, "Expected expression")?;
 
         loop {
             let curr_rule = self.current_rule()?;
@@ -243,7 +243,7 @@ impl Compiler {
 
             self.advance();
 
-            self.prev_call_infix("Expected expression")?;
+            self.prev_call_infix(precedence, "Expected expression")?;
         }
 
         Ok(())
@@ -309,9 +309,10 @@ impl Compiler {
         Ok(self.get_token_rule(current_token))
     }
  
-    fn prev_call_prefix(&mut self, msg: &str) -> Result<()> {
+    fn prev_call_prefix(&mut self, precedence: &Precedence, msg: &str) -> Result<()> {
         let rule = self.prev_rule()?;
-        rule.call_prefix(self, msg) 
+        let can_assign = Precedence::Assignment.is_greater_then(precedence);
+        rule.call_prefix(self, can_assign, msg) 
             .with_context(|| {
                 match self.prev() {
                     Ok((token, lexeme)) => anyhow!(CompileError::parse_error(msg, lexeme, token.line)),
@@ -320,9 +321,10 @@ impl Compiler {
             })
     }
 
-    fn prev_call_infix(&mut self, msg: &str) -> Result<()> {
+    fn prev_call_infix(&mut self, precedence: &Precedence, msg: &str) -> Result<()> {
         let rule = self.prev_rule()?;
-        rule.call_infix(self, msg) 
+        let can_assign = Precedence::Assignment.is_greater_then(precedence);
+        rule.call_infix(self, can_assign, msg) 
             .with_context(|| {
                 match self.prev() {
                     Ok((token, lexeme)) => anyhow!(CompileError::parse_error(msg, lexeme, token.line)),
@@ -495,7 +497,7 @@ impl ParseRuleTable {
     }
 }
 
-type ParseFn = fn(&mut Compiler) -> Result<()>;
+type ParseFn = fn(&mut Compiler, bool) -> Result<()>;
 
 struct ParseRule {
     pub prefix: Option<ParseFn>,
@@ -508,17 +510,17 @@ impl ParseRule {
         Self { prefix, infix, precedence }
     }
 
-    pub fn call_prefix<M: Into<String>>(&self, c: &mut Compiler, msg: M) -> Result<()> {
-        Self::call(&self.prefix, c, msg)
+    pub fn call_prefix<M: Into<String>>(&self, c: &mut Compiler, can_assign: bool, msg: M) -> Result<()> {
+        Self::call(&self.prefix, c, can_assign, msg)
     }
 
-    pub fn call_infix<M: Into<String>>(&self, c: &mut Compiler, msg: M) -> Result<()> {
-        Self::call(&self.infix, c, msg)
+    pub fn call_infix<M: Into<String>>(&self, c: &mut Compiler, can_assign: bool, msg: M) -> Result<()> {
+        Self::call(&self.infix, c, can_assign, msg)
     }
 
-    fn call<M: Into<String>>(callback: &Option<ParseFn>, c: &mut Compiler, msg: M) -> Result<()> {
+    fn call<M: Into<String>>(callback: &Option<ParseFn>, c: &mut Compiler, can_assign: bool, msg: M) -> Result<()> {
         match callback {
-            Some(f) => f(c),
+            Some(f) => f(c, can_assign),
             None => bail!(msg.into())
         }
     }
