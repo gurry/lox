@@ -1,7 +1,7 @@
 use core::panic;
 use std::{fmt::Display, collections::HashMap, rc::Rc};
 
-use anyhow::{Result, bail, Context};
+use anyhow::{Result, bail, Context, anyhow};
 use thiserror::Error;
 use crate::{scanner::{Scanner, Token, ScanError, TokenType}, chunk::Chunk, instruction::{OpCode, InstructionWriter}, value::Value};
 
@@ -140,7 +140,7 @@ impl Compiler {
     fn parse_precedence(&mut self, precedence: &Precedence) -> Result<()> {
         self.advance();
 
-        self.prev_rule()?.call_prefix(self,"Expected expression")?;
+        self.prev_call_prefix("Expected expression")?;
 
         loop {
             let curr_rule = self.current_rule()?;
@@ -150,7 +150,7 @@ impl Compiler {
 
             self.advance();
 
-            self.prev_rule()?.call_infix(self,"Expected expression")?;
+            self.prev_call_infix("Expected expression")?;
         }
 
         Ok(())
@@ -192,6 +192,28 @@ impl Compiler {
         Ok(self.get_token_rule(current_token))
     }
  
+    fn prev_call_prefix(&mut self, msg: &str) -> Result<()> {
+        let rule = self.prev_rule()?;
+        rule.call_prefix(self, msg) 
+            .with_context(|| {
+                match self.prev() {
+                    Ok((token, lexeme)) => anyhow!(CompileError::Parse { msg: msg.into(), lexeme: lexeme.into(), line: token.line }),
+                    Err(e) => e,
+                }
+            })
+    }
+
+    fn prev_call_infix(&mut self, msg: &str) -> Result<()> {
+        let rule = self.prev_rule()?;
+        rule.call_infix(self, msg) 
+            .with_context(|| {
+                match self.prev() {
+                    Ok((token, lexeme)) => anyhow!(CompileError::Parse { msg: msg.into(), lexeme: lexeme.into(), line: token.line }),
+                    Err(e) => e,
+                }
+            })
+    }
+
     fn prev_rule(&self) -> Result<Rc<ParseRule>> {
         let (prev_token, _) = self.prev()?;
         Ok(self.get_token_rule(prev_token))
