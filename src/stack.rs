@@ -22,11 +22,11 @@ impl<T> Stack<T> {
 
     pub fn peek(&self, pos: usize) -> Result<&T> 
     {
-        let index = self.0.len() - (pos + 1);
-
-        if index < 0 {
+        if (pos + 1) > self.0.len() {
             bail!("Stack underflow");
         }
+
+        let index = self.0.len() - (pos + 1);
 
         Ok(&self.0[index])
     }
