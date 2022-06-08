@@ -24,9 +24,13 @@ impl Compiler {
     pub fn compile(mut self) -> Result<Chunk> {
         self.advance();
 
-        self.expression()?;
+        loop {
+            if self.matches(&TokenType::Eof) {
+                break
+            }
 
-        self.consume(&TokenType::Eof, "Expected EOF");
+            self.declaration()?;
+        }
 
         if !self.errors.is_empty() {
             bail!(CompileErrorCollection { errors: self.errors.clone() })
@@ -41,6 +45,40 @@ impl Compiler {
 
         Ok(self.writer.to_chunk())
     } 
+
+    fn declaration(&mut self) -> Result<()> {
+        self.statement()
+    }
+
+    fn statement(&mut self) -> Result<()> {
+        if self.matches(&TokenType::Print) {
+            self.print_statement()?;
+        } else {
+            self.expression_statement()?;
+        }
+
+        Ok(())
+    }
+
+    fn print_statement(&mut self) -> Result<()> {
+        self.expression()?;
+        self.consume(&TokenType::Semicolon, "Expected ';' after value.");
+
+        let line = self.prev()?.0.line;
+        self.writer.write_op_code(OpCode::Print, line as i32);
+
+        Ok(())
+    }
+
+    fn expression_statement(&mut self) -> Result<()> {
+        self.expression()?;
+        self.consume(&TokenType::Semicolon, "Expected ';' after expression.");
+
+        let line = self.prev()?.0.line;
+        self.writer.write_op_code(OpCode::Pop, line as i32);
+
+        Ok(())
+    }
 
     fn expression(&mut self) -> Result<()> {
         self.parse_precedence(&Precedence::Assignment)
@@ -185,6 +223,23 @@ impl Compiler {
             self.push_current_parse_error(format!("Expected {:?} but no current token", token_type))
         }
         
+    }
+
+    fn matches(&mut self, token_type: &TokenType) -> bool {
+        if !self.check(token_type) {
+            return false;
+        }
+
+        self.advance();
+
+        true
+    }
+
+    fn check(&self, token_type: &TokenType) -> bool {
+        match &self.current_token {
+            Some(t) => t.token_type == *token_type,
+            None => false,
+        }
     }
 
     fn current_rule(&self) -> Result<Rc<ParseRule>> {

@@ -50,7 +50,6 @@ impl Vm {
                             }
                         },
                         OpCode::Return => {
-                            println!("{}", self.stack.pop()?);
                             return Ok(())
                         },
                         OpCode::Negate => {
@@ -90,6 +89,8 @@ impl Vm {
                         OpCode::Equal => self.binary_op(|a, b| Ok(Value::Boolean(a == b)))?,
                         OpCode::Greater => self.binary_op(|a, b| Ok(Value::Boolean(a > b)))?,
                         OpCode::Less => self.binary_op(|a, b| Ok(Value::Boolean(a < b)))?,
+                        OpCode::Print => println!("{}", self.stack.pop()?),
+                        OpCode::Pop => { let _ = self.stack.pop()?; },
                     }
                 },
                 None => break

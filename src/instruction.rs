@@ -133,7 +133,9 @@ pub enum OpCode {
     Not,
     Equal,
     Greater,
-    Less
+    Less,
+    Print,
+    Pop
 }
 
 impl Into<u8> for OpCode {
@@ -146,7 +148,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::Less as u8 {
+        if value > OpCode::Pop as u8 {
             bail!("Unknown opcode {}", value);
         }
 
