@@ -76,7 +76,7 @@ fn run(source: String, trace: bool, disassemble: bool) {
         }
     };
 
-    if disassemble {
+    // if disassemble {
         let mut disassembler = Disassembler::new();
         match disassembler.disassemble(&chunk, "Chunk") {
             Ok(_) => println!(),
@@ -85,7 +85,7 @@ fn run(source: String, trace: bool, disassemble: bool) {
                 return;
             }
         }
-    } 
+    // } 
 
     let mut vm = Vm::new(trace);
     match vm.run(&mut chunk) {

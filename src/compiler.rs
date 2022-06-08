@@ -75,22 +75,7 @@ impl Compiler {
         self.define_variable(global)
     }
 
-    fn parse_variable(&mut self, msg: &str) -> Result<u8> {
-        self.consume(&TokenType::Identifier, msg);
-        let c = self.prev_lexeme_str()?.to_string();
-        self.identifier_constant(c)
-    }
-
-    fn define_variable(&mut self, index: u8) -> Result<()> {
-        let line = self.prev()?.0.line;
-        self.writer.write_def_global(index, line as i32);
-        Ok(())
-    }
-
-    fn identifier_constant(&mut self, s: String) -> Result<u8> {
-        Ok(self.writer.add_constant(Value::String(s)))
-    }
-
+    
     fn statement(&mut self) -> Result<()> {
         if self.matches(&TokenType::Print) {
             self.print_statement()?;
@@ -183,9 +168,32 @@ impl Compiler {
         Ok(())
     }
 
-    fn get_rule(&self, operator_type: &TokenType) -> Rc<ParseRule> {
-        self.parse_rules.get(operator_type)
-            .expect(format!("No parse rule found for operator {:?}", operator_type).as_str())
+    fn variable(&mut self) -> Result<()> {
+        self.named_variable(self.prev_lexeme_str()?.to_string())
+    }
+
+    fn parse_variable(&mut self, msg: &str) -> Result<u8> {
+        self.consume(&TokenType::Identifier, msg);
+        let c = self.prev_lexeme_str()?.to_string();
+        self.identifier_constant(c)
+    }
+
+    fn define_variable(&mut self, index: u8) -> Result<()> {
+        let line = self.prev()?.0.line;
+        self.writer.write_op_code_with_operand(OpCode::DefineGlobal, index, line as i32);
+        Ok(())
+    }
+
+    fn identifier_constant(&mut self, s: String) -> Result<u8> {
+        Ok(self.writer.add_constant(Value::String(s)))
+    }
+
+    fn named_variable(&mut self, name: String) -> Result<()> {
+        let index = self.identifier_constant(name)?;
+        let line = self.prev()?.0.line;
+
+        self.writer.write_op_code_with_operand(OpCode::GetGlobal, index, line as i32);
+        Ok(())
     }
 
     fn number(&mut self) -> Result<()> {
@@ -322,6 +330,10 @@ impl Compiler {
         Ok(self.get_token_rule(prev_token))
     }
 
+    fn get_rule(&self, operator_type: &TokenType) -> Rc<ParseRule> {
+        self.parse_rules.get(operator_type)
+            .expect(format!("No parse rule found for operator {:?}", operator_type).as_str())
+    }
 
     fn prev_lexeme_str(&self) -> Result<&str> {
         match &self.prev_token {
@@ -427,7 +439,7 @@ impl Compiler {
         table.add(&TokenType::Less, None, Some(Self::binary), Precedence::Comparison);
         table.add(&TokenType::LessEqual, None, Some(Self::binary), Precedence::Comparison);
 
-        table.add_null(&TokenType::Identifier);
+        table.add(&TokenType::Identifier, Some(Self::variable), None, Precedence::None);
         table.add(&TokenType::String, Some(Self::string), None, Precedence::None);
         table.add(&TokenType::Number, Some(Self::number), None, Precedence::None);
 

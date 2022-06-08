@@ -94,19 +94,21 @@ impl Vm {
                         OpCode::Print => println!("{}", self.stack.pop()?),
                         OpCode::Pop => { let _ = self.stack.pop()?; },
                         OpCode::DefineGlobal => {
-                            let global_name_index = instruction.operand1
-                                .ok_or(VmError::from_msg("Operand 1 missing on DefineGlobal"))?;
-                            let global_name = reader.get_const(global_name_index as _)
-                                .context(anyhow!("No global at index {}", global_name_index))?;
+                            let global_name = self.get_global_name(&instruction, &reader)?;
 
-                            if let Value::String(global_name) = global_name {
-                                let val = self.stack.peek(0)?;
-                                self.globals.insert(global_name, val.clone());
-                                self.stack.pop()?;
-                            } else {
-                                bail!(VmError::from_msg("Operand 1 missing on DefineGlobal"))
+                            let val = self.stack.peek(0)?;
+                            self.globals.insert(global_name, val.clone());
+                            self.stack.pop()?;
+                        },
+                        OpCode::GetGlobal => {
+                            let global_name = self.get_global_name(&instruction, &reader)?;
+
+                            match self.globals.get(&global_name) {
+                                Some(v) => self.stack.push(v.clone()),
+                                None => bail!(VmError::from_msg(format!("global variable {} not found", global_name))),
                             }
-                        }
+
+                        },
                     }
                 },
                 None => break
@@ -114,6 +116,18 @@ impl Vm {
         }
 
         Ok(())
+    }
+
+    fn get_global_name(&mut self, instruction: &Instruction, reader: &InstructionReader) -> Result<String> {
+        let global_name_index = instruction.operand1
+                                .ok_or(VmError::from_msg(format!("Operand 1 missing on instruction {}", instruction.op_code)))?;
+        let constant = reader.get_const(global_name_index as _)
+            .context(anyhow!("No global at index {}", global_name_index))?;
+        
+        match constant {
+            Value::String(name) => Ok(name),
+            _ => bail!(VmError::from_msg(format!("Operand 1 missing on instruction {}", instruction.op_code)))
+        }
     }
 
     fn binary_op<O: FnOnce(&Value, &Value) -> Result<Value>>(&mut self, op: O) -> Result<()> {

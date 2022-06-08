@@ -71,9 +71,9 @@ impl InstructionWriter {
         Ok(())
     }
 
-    pub fn write_def_global(&mut self, var_index: u8, src_line_number: i32)  {
-        self.chunk.write(OpCode::DefineGlobal, src_line_number);
-        self.chunk.write(var_index, src_line_number);
+    pub fn write_op_code_with_operand(&mut self, op_code: OpCode, operand: u8, src_line_number: i32)  {
+        self.chunk.write(op_code, src_line_number);
+        self.chunk.write(operand, src_line_number);
     }
 
     pub fn write_op_code<I: Into<i32>>(&mut self, op_code: OpCode, src_line_number: I)  {
@@ -111,15 +111,10 @@ impl<'a> InstructionReader<'a> {
         let op_code: OpCode = code_byte.try_into()?;
 
         let instruction = match op_code {
-            OpCode::Constant => {
-                let const_index = self.chunk.read(self.offset)?;
+            OpCode::Constant | OpCode::DefineGlobal | OpCode::GetGlobal => {
+                let operand1 = self.chunk.read(self.offset)?;
                 self.offset += 1;
-                Instruction::unary(OpCode::Constant, const_index)
-            },
-            OpCode::DefineGlobal => {
-                let var_index = self.chunk.read(self.offset)?;
-                self.offset += 1;
-                Instruction::unary(OpCode::DefineGlobal, var_index)
+                Instruction::unary(op_code, operand1)
             },
             op_code => Instruction::simple(op_code)
         };
@@ -151,7 +146,8 @@ pub enum OpCode {
     Less,
     Print,
     Pop,
-    DefineGlobal
+    DefineGlobal,
+    GetGlobal
 }
 
 impl Into<u8> for OpCode {
@@ -164,7 +160,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::DefineGlobal as u8 {
+        if value > OpCode::GetGlobal as u8 {
             bail!("Unknown opcode {}", value);
         }
 
