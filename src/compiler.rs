@@ -237,13 +237,20 @@ impl Compiler {
 
         loop {
             let curr_rule = self.current_rule()?;
-            if precedence.is_greater_then(&curr_rule.precedence) {
+            if precedence.is_greater_than(&curr_rule.precedence) {
                 break;
             }
 
             self.advance();
 
             self.prev_call_infix(precedence, "Expected expression")?;
+        }
+
+        let can_assign = Precedence::Assignment.is_greater_than(precedence);
+
+        if can_assign && self.matches(&TokenType::Equal) {
+            let (token, lexeme) = self.prev()?;
+            bail!(CompileError::parse_error("Invalid assignment target", lexeme, token.line))
         }
 
         Ok(())
@@ -311,7 +318,7 @@ impl Compiler {
  
     fn prev_call_prefix(&mut self, precedence: &Precedence, msg: &str) -> Result<()> {
         let rule = self.prev_rule()?;
-        let can_assign = Precedence::Assignment.is_greater_then(precedence);
+        let can_assign = Precedence::Assignment.is_greater_than_or_eq(precedence);
         rule.call_prefix(self, can_assign, msg) 
             .with_context(|| {
                 match self.prev() {
@@ -323,7 +330,7 @@ impl Compiler {
 
     fn prev_call_infix(&mut self, precedence: &Precedence, msg: &str) -> Result<()> {
         let rule = self.prev_rule()?;
-        let can_assign = Precedence::Assignment.is_greater_then(precedence);
+        let can_assign = Precedence::Assignment.is_greater_than_or_eq(precedence);
         rule.call_infix(self, can_assign, msg) 
             .with_context(|| {
                 match self.prev() {
@@ -528,7 +535,7 @@ impl ParseRule {
 
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[repr(i32)]
 enum Precedence {
   None,
@@ -550,8 +557,12 @@ impl Precedence {
         (clone as i32 + 1).into()
     }
 
-    pub fn is_greater_then(&self, other: &Precedence) -> bool {
+    pub fn is_greater_than(&self, other: &Precedence) -> bool {
         self.clone() as i32 > other.clone() as i32
+    }
+
+    pub fn is_greater_than_or_eq(&self, other: &Precedence) -> bool {
+        self == other || self.is_greater_than(other)
     }
 }
 
