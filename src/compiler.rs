@@ -47,13 +47,48 @@ impl Compiler {
     } 
 
     fn declaration(&mut self) -> Result<()> {
-        self.statement()?;
-        self.synchronize();
+        if self.matches(&TokenType::Var) {
+            self.var_declaration()?;
+        } else {
+            self.statement()?;
+        }
+
         if self.panic_mode {
             self.synchronize();
         }
 
         Ok(())
+    }
+
+    fn var_declaration(&mut self) -> Result<()> {
+        let global = self.parse_variable("Expected variable name")?;
+
+        if self.matches(&TokenType::Equal) {
+            self.expression()?;
+        } else {
+            let line = self.prev()?.0.line;
+            self.writer.write_op_code(OpCode::Nil, line as i32);
+        }
+
+        self.consume(&TokenType::Semicolon, "Expected ';' after variable declaration.");
+
+        self.define_variable(global)
+    }
+
+    fn parse_variable(&mut self, msg: &str) -> Result<u8> {
+        self.consume(&TokenType::Identifier, msg);
+        let c = self.prev_lexeme_str()?.to_string();
+        self.identifier_constant(c)
+    }
+
+    fn define_variable(&mut self, index: u8) -> Result<()> {
+        let line = self.prev()?.0.line;
+        self.writer.write_def_global(index, line as i32);
+        Ok(())
+    }
+
+    fn identifier_constant(&mut self, s: String) -> Result<u8> {
+        Ok(self.writer.add_constant(Value::String(s)))
     }
 
     fn statement(&mut self) -> Result<()> {
@@ -285,6 +320,14 @@ impl Compiler {
     fn prev_rule(&self) -> Result<Rc<ParseRule>> {
         let (prev_token, _) = self.prev()?;
         Ok(self.get_token_rule(prev_token))
+    }
+
+
+    fn prev_lexeme_str(&self) -> Result<&str> {
+        match &self.prev_token {
+            Some(t) => Ok(self.lexeme_str(&t)),
+            None => bail!("No prev token. Can't get prev lexeme"),
+        }
     }
 
     fn get_token_rule(&self, token: &Token) -> Rc<ParseRule> {

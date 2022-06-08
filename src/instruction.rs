@@ -71,8 +71,18 @@ impl InstructionWriter {
         Ok(())
     }
 
+    pub fn write_def_global(&mut self, var_index: u8, src_line_number: i32)  {
+        self.chunk.write(OpCode::DefineGlobal, src_line_number);
+        self.chunk.write(var_index, src_line_number);
+    }
+
     pub fn write_op_code<I: Into<i32>>(&mut self, op_code: OpCode, src_line_number: I)  {
         self.chunk.write(op_code, src_line_number.into());
+    }
+
+
+    pub fn add_constant(&mut self, value: Value) -> u8 { 
+        self.chunk.add_constant(value)
     }
 }
 
@@ -106,6 +116,11 @@ impl<'a> InstructionReader<'a> {
                 self.offset += 1;
                 Instruction::unary(OpCode::Constant, const_index)
             },
+            OpCode::DefineGlobal => {
+                let var_index = self.chunk.read(self.offset)?;
+                self.offset += 1;
+                Instruction::unary(OpCode::DefineGlobal, var_index)
+            },
             op_code => Instruction::simple(op_code)
         };
         Ok(Some((instruction, instruction_offset, src_line_number)))
@@ -135,7 +150,8 @@ pub enum OpCode {
     Greater,
     Less,
     Print,
-    Pop
+    Pop,
+    DefineGlobal
 }
 
 impl Into<u8> for OpCode {
@@ -148,7 +164,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::Pop as u8 {
+        if value > OpCode::DefineGlobal as u8 {
             bail!("Unknown opcode {}", value);
         }
 

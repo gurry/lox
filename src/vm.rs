@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, anyhow};
 use thiserror::Error;
 
 use crate::disassembler::Disassembler;
@@ -12,12 +13,13 @@ use crate::value::Value;
 #[derive(Debug)]
 pub struct Vm {
     stack: Stack<Value>,
+    globals: HashMap<String, Value>,
     trace: bool
 }
 
 impl Vm {
     pub fn new(trace: bool) -> Self {
-        Self { stack: Stack::new(), trace }
+        Self { stack: Stack::new(), globals: HashMap::new(), trace }
     }
 
     pub fn run(&mut self, chunk: &mut Chunk) -> Result<()> {
@@ -91,6 +93,20 @@ impl Vm {
                         OpCode::Less => self.binary_op(|a, b| Ok(Value::Boolean(a < b)))?,
                         OpCode::Print => println!("{}", self.stack.pop()?),
                         OpCode::Pop => { let _ = self.stack.pop()?; },
+                        OpCode::DefineGlobal => {
+                            let global_name_index = instruction.operand1
+                                .ok_or(VmError::from_msg("Operand 1 missing on DefineGlobal"))?;
+                            let global_name = reader.get_const(global_name_index as _)
+                                .context(anyhow!("No global at index {}", global_name_index))?;
+
+                            if let Value::String(global_name) = global_name {
+                                let val = self.stack.peek(0)?;
+                                self.globals.insert(global_name, val.clone());
+                                self.stack.pop()?;
+                            } else {
+                                bail!(VmError::from_msg("Operand 1 missing on DefineGlobal"))
+                            }
+                        }
                     }
                 },
                 None => break
