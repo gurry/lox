@@ -49,6 +49,10 @@ impl Compiler {
     fn declaration(&mut self) -> Result<()> {
         self.statement()?;
         self.synchronize();
+        if self.panic_mode {
+            self.synchronize();
+        }
+
         Ok(())
     }
 
