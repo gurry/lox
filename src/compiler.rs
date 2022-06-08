@@ -47,7 +47,9 @@ impl Compiler {
     } 
 
     fn declaration(&mut self) -> Result<()> {
-        self.statement()
+        self.statement()?;
+        self.synchronize();
+        Ok(())
     }
 
     fn statement(&mut self) -> Result<()> {
@@ -242,6 +244,13 @@ impl Compiler {
         }
     }
 
+    fn check_prev(&self, token_type: &TokenType) -> bool {
+        match &self.prev_token {
+            Some(t) => t.token_type == *token_type,
+            None => false,
+        }
+    }
+
     fn current_rule(&self) -> Result<Rc<ParseRule>> {
         let (current_token, _) = self.current()?;
         Ok(self.get_token_rule(current_token))
@@ -317,6 +326,33 @@ impl Compiler {
         if !self.panic_mode {
             self.errors.push(error);
             self.panic_mode = true;
+        }
+    }
+
+    fn synchronize(&mut self) {
+        self.panic_mode = false;
+
+        loop {
+            if self.check(&TokenType::Eof) {
+                break;
+            }
+
+            if self.check_prev(&TokenType::Semicolon) {
+                return;
+            }
+
+            match &self.current_token {
+                Some(t) => {
+                    match t.token_type {
+                        TokenType::Class | TokenType::Fun | TokenType::Var | TokenType::For
+                        | TokenType::If | TokenType::While | TokenType::Print | TokenType::Return => return,
+                        _ => {}
+                    };
+                },
+                _ => {}
+            }
+
+            self.advance();
         }
     }
 
