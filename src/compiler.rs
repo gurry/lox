@@ -117,6 +117,13 @@ impl Compiler {
         self.writer.write_const(num, token.line as i32)
     }
 
+    fn string(&mut self) -> Result<()> {
+        let (token, lexeme) = self.prev()?;
+        let str_copy = lexeme[1..lexeme.len()-1].to_string();
+        let str = Value::String(str_copy);
+            
+        self.writer.write_const(str, token.line as i32)
+    }
 
     fn literal(&mut self) -> Result<()> {
         let (token, _) = self.prev()?;
@@ -261,6 +268,7 @@ impl Compiler {
         table.add(&TokenType::LessEqual, None, Some(Self::binary), Precedence::Comparison);
 
         table.add_null(&TokenType::Identifier);
+        table.add(&TokenType::String, Some(Self::string), None, Precedence::None);
         table.add(&TokenType::Number, Some(Self::number), None, Precedence::None);
 
 
