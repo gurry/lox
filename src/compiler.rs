@@ -192,7 +192,13 @@ impl Compiler {
         let index = self.identifier_constant(name)?;
         let line = self.prev()?.0.line;
 
-        self.writer.write_op_code_with_operand(OpCode::GetGlobal, index, line as i32);
+        if self.matches(&TokenType::Equal) {
+            self.expression()?;
+            self.writer.write_op_code_with_operand(OpCode::SetGlobal, index, line as i32);
+        } else {
+            self.writer.write_op_code_with_operand(OpCode::GetGlobal, index, line as i32);
+        }
+
         Ok(())
     }
 

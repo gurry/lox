@@ -101,13 +101,18 @@ impl Vm {
                             self.stack.pop()?;
                         },
                         OpCode::GetGlobal => {
+                            let val =  self.get_global(&instruction, &reader)?;
+                            self.stack.push(val);
+                        },
+                        OpCode::SetGlobal => {
                             let global_name = self.get_global_name(&instruction, &reader)?;
-
-                            match self.globals.get(&global_name) {
-                                Some(v) => self.stack.push(v.clone()),
-                                None => bail!(VmError::from_msg(format!("global variable {} not found", global_name))),
+                            
+                            if !self.globals.contains_key(&global_name) {
+                                bail!(VmError::from_msg(format!("Undefined variable '{}'", global_name)));
                             }
 
+                            let new_value = self.stack.peek(0)?.clone();
+                            self.globals.insert(global_name, new_value);
                         },
                     }
                 },
@@ -116,6 +121,15 @@ impl Vm {
         }
 
         Ok(())
+    }
+
+    fn get_global(&mut self, instruction: &Instruction, reader: &InstructionReader) -> Result<Value> {
+        let global_name = self.get_global_name(&instruction, &reader)?;
+
+        match self.globals.get(&global_name) {
+            Some(v) => Ok(v.clone()),
+            None => bail!(VmError::from_msg(format!("Undefined variable '{}'", global_name))),
+        }
     }
 
     fn get_global_name(&mut self, instruction: &Instruction, reader: &InstructionReader) -> Result<String> {

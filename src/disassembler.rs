@@ -42,11 +42,11 @@ impl Disassembler {
         self.prev_src_line_number = Some(src_line_number);
 
         match &instruction.op_code {
-            OpCode::Constant => {
+            OpCode::Constant | OpCode::DefineGlobal | OpCode::SetGlobal => {
                 match instruction.operand1 {
                     Some(index) => {
                         let value = reader.get_const(index as usize)?;
-                        println!("{} {:04} '{}'", OpCode::Constant, index, value)
+                        println!("{} {:04} '{}'", instruction.op_code, index, value)
                     }
                     _ => bail!("Opcode {} has no operand", instruction.op_code),
                 }
