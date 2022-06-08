@@ -61,7 +61,20 @@ impl Vm {
 
                             self.stack.push(negated_value)
                         },
-                        OpCode::Add => self.num_binary_op(|a, b| a + b)?,
+                        OpCode::Add => {
+                            let a = self.stack.peek(1)?;
+                            let b = self.stack.peek(0)?;
+
+                            match (a, b) {
+                                (Value::Number(_), Value::Number(_)) => self.num_binary_op(|a, b| a + b)?,
+                                (Value::String(_), Value::String(_)) => self.binary_op(|a, b| {
+                                    match (a, b) {
+                                    (Value::String(a), Value::String(b)) => Ok(Value::String(format!("{}{}", a, b))),
+                                    _ => bail!("Attempted add or concatenate on non-numeric or non-string operands")
+                                } })?,
+                                _ => bail!("Attempted add or concatenate on non-numeric or non-string operands")
+                            };
+                        },
                         OpCode::Subtract => self.num_binary_op(|a, b| a - b)?,
                         OpCode::Multiply => self.num_binary_op(|a, b| a * b)?,
                         OpCode::Divide => self.num_binary_op(|a, b| a / b)?,

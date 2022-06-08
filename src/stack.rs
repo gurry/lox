@@ -20,13 +20,14 @@ impl<T> Stack<T> {
         Ok(self.0.pop().unwrap())
     }
 
-    pub fn peek(&self) -> Result<&T> 
+    pub fn peek(&self, pos: usize) -> Result<&T> 
     {
-        if self.0.is_empty() {
+        let index = self.0.len() - (pos + 1);
+
+        if index < 0 {
             bail!("Stack underflow");
         }
 
-        Ok(&self.0.last().unwrap())
+        Ok(&self.0[index])
     }
-
 }
