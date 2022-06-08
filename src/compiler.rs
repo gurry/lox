@@ -10,6 +10,8 @@ pub struct Compiler{
     writer: InstructionWriter,
     current_token: Option<Token>,
     prev_token: Option<Token>,
+    scope_depth: i32,
+    locals: Vec<Local>,
     errors: Vec<CompileError>,
     panic_mode: bool,
     parse_rules: ParseRuleTable
@@ -18,7 +20,9 @@ pub struct Compiler{
 impl Compiler {
     pub fn new(source: String) -> Self {
         let parse_rules = Self::set_up_parse_rules();
-        Self { scanner: Scanner::new(source), writer: InstructionWriter::with_new_chunk(), current_token: None, prev_token: None, errors: Vec::new(), panic_mode: false, parse_rules }
+        Self { scanner: Scanner::new(source), writer: InstructionWriter::with_new_chunk(),
+            current_token: None, prev_token: None, scope_depth: 0,
+            locals: Vec::new(), errors: Vec::new(), panic_mode: false, parse_rules }
     }
 
     pub fn compile(mut self) -> Result<Chunk> {
@@ -74,11 +78,15 @@ impl Compiler {
 
         self.define_variable(global)
     }
-
     
     fn statement(&mut self) -> Result<()> {
         if self.matches(&TokenType::Print) {
             self.print_statement()?;
+        } else if self.matches(&TokenType::LeftBrace) {
+            self.begin_scope();
+            self.block()?;
+            self.end_scope()?;
+
         } else {
             self.expression_statement()?;
         }
@@ -96,6 +104,20 @@ impl Compiler {
         Ok(())
     }
 
+    fn block(&mut self) -> Result<()> {
+        loop {
+            if self.check(&TokenType::RightBrace) || self.check(&TokenType::Eof) {
+                break
+            }
+            self.declaration()?;
+        }
+
+        self.consume(&TokenType::RightBrace, "Expected '}' after block");
+
+        Ok(())
+    }
+
+    
     fn expression_statement(&mut self) -> Result<()> {
         self.expression()?;
         self.consume(&TokenType::Semicolon, "Expected ';' after expression.");
@@ -168,17 +190,76 @@ impl Compiler {
         Ok(())
     }
 
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) -> Result<()> {
+        self.scope_depth -= 1;
+
+        if self.locals.len() > 0 {
+            let mut i = self.locals.len() - 1;
+            loop  {
+                if self.locals[i].depth < self.scope_depth {
+                    break;
+                } 
+
+                let line = self.prev()?.0.line;
+                self.writer.write_op_code(OpCode::Pop, line as i32);
+
+                self.locals.pop();
+
+                if i == 0 {
+                    break;
+                }
+
+                i -= 1;
+            }
+        }
+
+        Ok(())
+    }
+
+
     fn variable(&mut self, can_assign: bool) -> Result<()> {
         self.named_variable(self.prev_lexeme_str()?.to_string(), can_assign)
     }
 
     fn parse_variable(&mut self, msg: &str) -> Result<u8> {
         self.consume(&TokenType::Identifier, msg);
+
+        self.declare_variable()?;
+        if self.scope_depth > 0 {
+            return Ok(0);
+        }
+
         let c = self.prev_lexeme_str()?.to_string();
         self.identifier_constant(c)
     }
 
+    fn declare_variable(&mut self) -> Result<()> {
+        if self.scope_depth == 0 {
+            return Ok(());
+        }
+
+        let name = self.prev_lexeme_str()?.to_string();
+
+        self.add_local(name);
+
+        Ok(())
+    }
+
+    fn add_local(&mut self, name: String) {
+        if self.locals.len() >= u8::MAX as usize {
+            panic!("Too many locals");
+        }
+        self.locals.push(Local { name, depth: self.scope_depth });
+    }
+
     fn define_variable(&mut self, index: u8) -> Result<()> {
+        if self.scope_depth > 0 {
+            return Ok(());
+        }
         let line = self.prev()?.0.line;
         self.writer.write_op_code_with_operand(OpCode::DefineGlobal, index, line as i32);
         Ok(())
@@ -573,6 +654,12 @@ impl From<i32> for Precedence {
         }
         unsafe { std::mem::transmute(i) }
     }
+}
+
+#[derive(Clone, Debug)]
+struct Local {
+    name: String,
+    depth: i32
 }
 
 #[derive(Error, Clone, Debug)]
