@@ -261,7 +261,7 @@ impl Compiler {
         rule.call_prefix(self, msg) 
             .with_context(|| {
                 match self.prev() {
-                    Ok((token, lexeme)) => anyhow!(CompileError::Parse { msg: msg.into(), lexeme: lexeme.into(), line: token.line }),
+                    Ok((token, lexeme)) => anyhow!(CompileError::parse_error(msg, lexeme, token.line)),
                     Err(e) => e,
                 }
             })
@@ -272,7 +272,7 @@ impl Compiler {
         rule.call_infix(self, msg) 
             .with_context(|| {
                 match self.prev() {
-                    Ok((token, lexeme)) => anyhow!(CompileError::Parse { msg: msg.into(), lexeme: lexeme.into(), line: token.line }),
+                    Ok((token, lexeme)) => anyhow!(CompileError::parse_error(msg, lexeme, token.line)),
                     Err(e) => e,
                 }
             })
@@ -315,7 +315,7 @@ impl Compiler {
     fn push_parse_error<M: Into<String>>(&mut self, msg: M, token: Token) {
         let lexeme = self.scanner.get_lexeme_str(&token.lexeme)
             .expect("Lexeme outside of source boundary");
-        self.push_error(CompileError::new_parse_error(msg, lexeme.to_string(), token.line))
+        self.push_error(CompileError::parse_error(msg, lexeme, token.line))
     }
 
     fn push_scan_error(&mut self, scan_err: &ScanError) {
@@ -525,8 +525,8 @@ pub enum CompileError {
 }
 
 impl CompileError {
-    pub fn new_parse_error<M: Into<String>>(msg: M, lexeme: String, line:usize) -> Self { 
-        Self::Parse { msg: msg.into(), lexeme, line }
+    pub fn parse_error<M: Into<String>, N: Into<String>>(msg: M, lexeme: N, line:usize) -> Self { 
+        Self::Parse { msg: msg.into(), lexeme: lexeme.into(), line }
     }
 }   
 
