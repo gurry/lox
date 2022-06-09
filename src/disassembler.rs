@@ -63,7 +63,7 @@ impl Disassembler {
                     _ => bail!("Opcode {} has no operand", instruction.op_code),
                 }
             },
-            OpCode::JumpIfFalse => {
+            OpCode::Jump | OpCode::JumpIfFalse => {
                 match (instruction.operand1, instruction.operand2) {
                     (Some(operand1), Some(operand2)) => {
                         println!("{} {:04} {:04}", instruction.op_code, operand1, operand2);

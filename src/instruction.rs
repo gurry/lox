@@ -92,6 +92,11 @@ impl InstructionWriter {
         self.write_op_code_with_operands(OpCode::JumpIfFalse, 0xff,0xff, src_line_number)
     }
 
+
+    pub fn write_jump(&mut self, src_line_number: i32) -> usize {
+        self.write_op_code_with_operands(OpCode::Jump, 0xff,0xff, src_line_number)
+    }
+
     pub fn set_byte(&mut self, loc: usize, code_byte: u8) -> Result<()> {
         self.chunk.set(loc, code_byte)
     }
@@ -109,7 +114,7 @@ impl InstructionWriter {
     }
 
     pub fn patch_jump_to_chunk_end(&mut self, jmp_op_code_loc: usize) -> Result<()> {
-        let relative_offset_to_current_chunk_end = self.chunk.len() - (jmp_op_code_loc + 2);
+        let relative_offset_to_current_chunk_end = self.chunk.len() - (jmp_op_code_loc + 3);
 
         if relative_offset_to_current_chunk_end > u16::MAX as usize {
             bail!("Jump too long ({})", relative_offset_to_current_chunk_end);
@@ -160,7 +165,7 @@ impl<'a> InstructionReader<'a> {
                 self.ip += 1;
                 Instruction::unary(op_code, operand1)
             },
-            OpCode::JumpIfFalse => {
+            OpCode::Jump | OpCode::JumpIfFalse => {
                 let operand1 = self.chunk.read(self.ip)?;
                 self.ip += 1;
                 let operand2 = self.chunk.read(self.ip)?;
@@ -216,6 +221,7 @@ pub enum OpCode {
     SetGlobal,
     GetLocal,
     SetLocal,
+    Jump,
     JumpIfFalse
 }
 

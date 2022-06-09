@@ -107,11 +107,19 @@ impl Compiler {
 
 
         let line = self.prev()?.0.line;
-        let jump_addr = self.writer.write_jump_if_false(line as i32);
+        let if_jump_addr = self.writer.write_jump_if_false(line as i32);
 
         self.statement()?;
 
-        self.writer.patch_jump_to_chunk_end(jump_addr)?;
+        let else_jump_addr = self.writer.write_jump(line as i32);
+
+        self.writer.patch_jump_to_chunk_end(if_jump_addr)?;
+
+        if self.matches(&TokenType::Else) {
+            self.statement()?;
+        }
+
+        self.writer.patch_jump_to_chunk_end(else_jump_addr)?;
 
         Ok(())
     }
