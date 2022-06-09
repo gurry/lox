@@ -91,10 +91,27 @@ impl Compiler {
             self.begin_scope();
             self.block()?;
             self.end_scope()?;
-
+        } else if self.matches(&TokenType::If) {
+            self.if_statement()?;
         } else {
             self.expression_statement()?;
         }
+
+        Ok(())
+    }
+
+    fn if_statement(&mut self) -> Result<()> {
+        self.consume(&TokenType::LeftParen, "Expected '(' after 'if'.");
+        self.expression()?;
+        self.consume(&TokenType::RightParen, "Expected ')' after condition"); 
+
+
+        let line = self.prev()?.0.line;
+        let jump_addr = self.writer.write_jump_if_false(line as i32);
+
+        self.statement()?;
+
+        self.writer.patch_jump_to_chunk_end(jump_addr)?;
 
         Ok(())
     }
@@ -143,7 +160,6 @@ impl Compiler {
         Ok(())
     }
 
-
     fn unary(&mut self, _can_assign: bool) -> Result<()> {
         let (prev_token, _) = self.prev()?;
         let operator_type = prev_token.token_type.clone();
@@ -152,10 +168,10 @@ impl Compiler {
         self.parse_precedence(&Precedence::Unary)?;
 
         match operator_type {
-            TokenType::Bang => self.writer.write_op_code(OpCode::Not, line as i32),
-            TokenType::Minus => self.writer.write_op_code(OpCode::Negate, line as i32),
+            TokenType::Bang => { self.writer.write_op_code(OpCode::Not, line as i32); },
+            TokenType::Minus => { self.writer.write_op_code(OpCode::Negate, line as i32); },
             _ => {}
-        }
+        };
 
         Ok(())
     }
@@ -170,21 +186,21 @@ impl Compiler {
         self.parse_precedence(&higher_precedence)?;
 
         match operator_type {
-            TokenType::Plus => self.writer.write_op_code(OpCode::Add, line as i32),
-            TokenType::Minus => self.writer.write_op_code(OpCode::Subtract, line as i32),
-            TokenType::Star => self.writer.write_op_code(OpCode::Multiply, line as i32),
-            TokenType::Slash => self.writer.write_op_code(OpCode::Divide, line as i32),
+            TokenType::Plus => { self.writer.write_op_code(OpCode::Add, line as i32); },
+            TokenType::Minus => { self.writer.write_op_code(OpCode::Subtract, line as i32); },
+            TokenType::Star => { self.writer.write_op_code(OpCode::Multiply, line as i32); },
+            TokenType::Slash => { self.writer.write_op_code(OpCode::Divide, line as i32); },
             TokenType::BangEqual => {
                 self.writer.write_op_code(OpCode::Equal, line as i32);
                 self.writer.write_op_code(OpCode::Not, line as i32);
             },
-            TokenType::EqualEqual => self.writer.write_op_code(OpCode::Equal, line as i32),
-            TokenType::Greater => self.writer.write_op_code(OpCode::Greater, line as i32),
+            TokenType::EqualEqual => { self.writer.write_op_code(OpCode::Equal, line as i32); },
+            TokenType::Greater => { self.writer.write_op_code(OpCode::Greater, line as i32); },
             TokenType::GreaterEqual => {
                 self.writer.write_op_code(OpCode::Less, line as i32);
                 self.writer.write_op_code(OpCode::Not, line as i32);
             },
-            TokenType::Less => self.writer.write_op_code(OpCode::Less, line as i32),
+            TokenType::Less => { self.writer.write_op_code(OpCode::Less, line as i32); },
             TokenType::LessEqual => {
                 self.writer.write_op_code(OpCode::Greater, line as i32);
                 self.writer.write_op_code(OpCode::Not, line as i32);
@@ -315,7 +331,9 @@ impl Compiler {
         let num = lexeme.parse::<f64>()
                 .context(format!("Failed to parse '{}' as number", lexeme))?;
         let num = Value::Number(num);
-        self.writer.write_const(num, token.line as i32)
+        self.writer.write_const(num, token.line as i32)?;
+
+        Ok(())
     }
 
     fn string(&mut self, _can_assign: bool) -> Result<()> {
@@ -323,15 +341,17 @@ impl Compiler {
         let str_copy = lexeme[1..lexeme.len()-1].to_string();
         let str = Value::String(str_copy);
             
-        self.writer.write_const(str, token.line as i32)
+        self.writer.write_const(str, token.line as i32)?;
+
+        Ok(())
     }
 
     fn literal(&mut self, _can_assign: bool) -> Result<()> {
         let (token, _) = self.prev()?;
         match token.token_type {
-            TokenType::Nil => self.writer.write_op_code(OpCode::Nil, token.line as i32),
-            TokenType::True => self.writer.write_op_code(OpCode::True, token.line as i32),
-            TokenType::False => self.writer.write_op_code(OpCode::False, token.line as i32),
+            TokenType::Nil => { self.writer.write_op_code(OpCode::Nil, token.line as i32); },
+            TokenType::True => { self.writer.write_op_code(OpCode::True, token.line as i32); },
+            TokenType::False => { self.writer.write_op_code(OpCode::False, token.line as i32); },
             _ => {}
         };
 

@@ -1,6 +1,6 @@
 use std::{path::{PathBuf, Path}, fs::read_to_string, io::{self, Write, BufRead}};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use compiler::{Compiler, CompileErrorCollection};
 use disassembler::Disassembler;
 use structopt::StructOpt;

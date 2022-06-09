@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 
 use crate::value::Value;
 
@@ -30,9 +30,21 @@ impl Chunk {
         Ok(self.src_line_numbers[offset])
     }
     
-    pub fn write<B: Into<u8>>(&mut self, code_byte: B, src_line_number: i32)  {
+    pub fn write<B: Into<u8>>(&mut self, code_byte: B, src_line_number: i32) -> usize  {
         self.code.push(code_byte.into());
         self.src_line_numbers.push(src_line_number);
+        self.code.len() - 1
+    }
+
+
+    pub fn set<B: Into<u8>>(&mut self, loc: usize, code_byte: B) -> Result<()> {
+        if loc >= self.code.len() {
+            bail!("Chunk overflow");
+        }
+
+        self.code[loc] = code_byte.into();
+
+        Ok(())
     }
 
     pub fn add_constant(&mut self, constant: Value) -> u8 {
@@ -46,5 +58,9 @@ impl Chunk {
         }
 
         Ok(self.constants[index].clone())
+    }
+
+    pub fn len(&self) -> usize {
+        self.code.len()
     }
 }

@@ -60,26 +60,68 @@ impl InstructionWriter {
         self.chunk
     }
 
-    pub fn write_const(&mut self, value: Value, src_line_number: i32) -> Result<()> {
+    pub fn write_const(&mut self, value: Value, src_line_number: i32) -> Result<usize> {
         let const_index = self.chunk.add_constant(value);
         if const_index > u8::MAX {
             bail!("Too many costants in chunk")
         }
-        self.chunk.write(OpCode::Constant, src_line_number);
+        let start = self.chunk.write(OpCode::Constant, src_line_number);
         self.chunk.write(const_index, src_line_number);
+
+        Ok(start)
+    }
+
+    pub fn write_op_code_with_operand(&mut self, op_code: OpCode, operand: u8, src_line_number: i32) -> usize {
+        let start = self.chunk.write(op_code, src_line_number);
+        self.chunk.write(operand, src_line_number);
+        start
+    }
+
+    pub fn write_op_code_with_operands(&mut self, op_code: OpCode, operand1: u8, operand2: u8, src_line_number: i32) -> usize {
+        let start = self.chunk.write(op_code, src_line_number);
+        self.chunk.write(operand1, src_line_number);
+        self.chunk.write(operand2, src_line_number);
+        start
+    }
+
+    pub fn write_op_code<I: Into<i32>>(&mut self, op_code: OpCode, src_line_number: I) -> usize  {
+        self.chunk.write(op_code, src_line_number.into())
+    }
+
+    pub fn write_jump_if_false(&mut self, src_line_number: i32) -> usize {
+        self.write_op_code_with_operands(OpCode::JumpIfFalse, 0xff,0xff, src_line_number)
+    }
+
+    pub fn set_byte(&mut self, loc: usize, code_byte: u8) -> Result<()> {
+        self.chunk.set(loc, code_byte)
+    }
+
+    pub fn patch_operands(&mut self, op_code_loc: usize, operand1: Option<u8>, operand2: Option<u8>) -> Result<()> {
+        if let Some(op1) = operand1 {
+            self.set_byte(op_code_loc + 1, op1)?;
+        }
+
+        if let Some(op2) = operand2 {
+            self.set_byte(op_code_loc + 2, op2)?;
+        }
 
         Ok(())
     }
 
-    pub fn write_op_code_with_operand(&mut self, op_code: OpCode, operand: u8, src_line_number: i32)  {
-        self.chunk.write(op_code, src_line_number);
-        self.chunk.write(operand, src_line_number);
-    }
+    pub fn patch_jump_to_chunk_end(&mut self, jmp_op_code_loc: usize) -> Result<()> {
+        let relative_offset_to_current_chunk_end = self.chunk.len() - (jmp_op_code_loc + 2);
 
-    pub fn write_op_code<I: Into<i32>>(&mut self, op_code: OpCode, src_line_number: I)  {
-        self.chunk.write(op_code, src_line_number.into());
-    }
+        if relative_offset_to_current_chunk_end > u16::MAX as usize {
+            bail!("Jump too long ({})", relative_offset_to_current_chunk_end);
+        }
 
+        let operand1 = (relative_offset_to_current_chunk_end >> 8) & 0xff;
+        let operand2 = relative_offset_to_current_chunk_end & 0xff;
+
+        self.patch_operands(jmp_op_code_loc, Some(operand1 as u8), Some(operand2 as u8))?;
+
+        Ok(())
+    }
 
     pub fn add_constant(&mut self, value: Value) -> u8 { 
         self.chunk.add_constant(value)
@@ -88,25 +130,25 @@ impl InstructionWriter {
 
 pub struct InstructionReader<'a> {
     chunk: &'a Chunk,
-    offset: usize
+    ip: usize
 }
 
 impl<'a> InstructionReader<'a> {
     pub fn new(chunk: &'a Chunk) -> Self {
-        Self { chunk, offset: 0 }
+        Self { chunk, ip: 0 }
     }
 
     pub fn read_next(&mut self) -> Result<Option<(Instruction, usize, i32)>> {
-        let code_byte = match self.chunk.read(self.offset) {
+        let code_byte = match self.chunk.read(self.ip) {
             Ok(c) => c,
             Err(_) => return Ok(None),
         };
 
-        let src_line_number = self.chunk.get_src_line_number(self.offset)?;
+        let src_line_number = self.chunk.get_src_line_number(self.ip)?;
 
-        let instruction_offset = self.offset;
+        let instruction_offset = self.ip;
 
-        self.offset += 1;
+        self.ip += 1;
 
         let op_code: OpCode = code_byte.try_into()?;
 
@@ -114,9 +156,16 @@ impl<'a> InstructionReader<'a> {
             OpCode::Constant | OpCode::DefineGlobal
             | OpCode::GetGlobal | OpCode::SetGlobal 
             | OpCode::GetLocal | OpCode::SetLocal => {
-                let operand1 = self.chunk.read(self.offset)?;
-                self.offset += 1;
+                let operand1 = self.chunk.read(self.ip)?;
+                self.ip += 1;
                 Instruction::unary(op_code, operand1)
+            },
+            OpCode::JumpIfFalse => {
+                let operand1 = self.chunk.read(self.ip)?;
+                self.ip += 1;
+                let operand2 = self.chunk.read(self.ip)?;
+                self.ip += 1;
+                Instruction::binary(op_code, operand1, operand2)
             },
             op_code => Instruction::simple(op_code)
         };
@@ -126,6 +175,20 @@ impl<'a> InstructionReader<'a> {
 
     pub fn get_const(&self, index: usize) -> Result<Value> {
         self.chunk.get_constant(index)
+    }
+
+    pub fn set_ip(&mut self, new_ip: usize) -> Result<()> {
+        if new_ip > self.chunk.len() {
+            bail!("Attempt to set ip beyond chunk ({})", new_ip);
+        }
+
+        self.ip = new_ip;
+
+        Ok(())
+    }
+
+    pub fn inc_ip(&mut self, inc: usize) -> Result<()> {
+        self.set_ip(self.ip + inc)
     }
 }
 
@@ -153,6 +216,7 @@ pub enum OpCode {
     SetGlobal,
     GetLocal,
     SetLocal,
+    JumpIfFalse
 }
 
 impl Into<u8> for OpCode {
@@ -165,7 +229,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::SetLocal as u8 {
+        if value > OpCode::JumpIfFalse as u8 {
             bail!("Unknown opcode {}", value);
         }
 

@@ -124,6 +124,20 @@ impl Vm {
                             let val = self.stack.peek(0)?;
                             self.stack.set_front(slot as usize, val.clone())?;
                         },
+
+                        OpCode::JumpIfFalse => {
+                            let op1 = Self::get_operand1(&instruction)? as usize;
+                            let op2 = Self::get_operand2(&instruction)? as usize;
+
+                            let jmp_offset = op1 << 8 | op2;
+
+                            match self.stack.peek(0)? {
+                                Value::Boolean(v) => if !*v {
+                                    reader.inc_ip(jmp_offset)?;
+                                },
+                                _ => bail!("Can't jump. Non boolean value found on stack")
+                            }
+                        }
                     }
                 },
                 None => break
@@ -157,6 +171,11 @@ impl Vm {
     fn get_operand1(instruction: &Instruction) -> Result<u8> {
         instruction.operand1
             .ok_or(anyhow!(VmError::from_msg(format!("Operand 1 missing on instruction {}", instruction.op_code))))
+    }
+
+    fn get_operand2(instruction: &Instruction) -> Result<u8> {
+        instruction.operand2
+            .ok_or(anyhow!(VmError::from_msg(format!("Operand 2 missing on instruction {}", instruction.op_code))))
     }
 
     fn binary_op<O: FnOnce(&Value, &Value) -> Result<Value>>(&mut self, op: O) -> Result<()> {
