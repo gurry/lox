@@ -33,7 +33,12 @@ impl Compiler {
                 break
             }
 
-            self.declaration()?;
+            match self.declaration() {
+                Ok(_) => {},
+                Err(e) => for err in e.chain().rev() {
+                    self.push_current_parse_error(format!("{}", err));
+                }
+            }
         }
 
         if !self.errors.is_empty() {
@@ -253,17 +258,27 @@ impl Compiler {
         if self.locals.len() >= u8::MAX as usize {
             panic!("Too many locals");
         }
-        self.locals.push(Local { name, depth: self.scope_depth });
+        self.locals.push(Local { name, depth: self.scope_depth, initialized: false });
     }
 
 
-    fn resolve_local(&self, name: &str) -> Option<i32> {
-        self.locals.iter().rposition(|l| l.name == name)
-            .map(|i| i as i32)
+    fn resolve_local(&self, name: &str) -> Result<Option<i32>> {
+        for (i, l) in self.locals.iter().enumerate() {
+            if l.name == name {
+                if !l.initialized {
+                    bail!("Use of uninitialized local variable {}", name);
+                }
+
+                return Ok(Some(i as i32));
+            }
+        }
+
+        Ok(None)
     }
 
     fn define_variable(&mut self, index: u8) -> Result<()> {
         if self.scope_depth > 0 {
+            self.locals.last_mut().unwrap().initialized = true;
             return Ok(());
         }
         let line = self.prev()?.0.line;
@@ -278,7 +293,7 @@ impl Compiler {
     fn named_variable(&mut self, name: String, can_assign: bool) -> Result<()> {
         let line = self.prev()?.0.line;
 
-        let (get_op, set_op, operand) = if let Some(local_pos) = self.resolve_local(&name) {
+        let (get_op, set_op, operand) = if let Some(local_pos) = self.resolve_local(&name)? {
             (OpCode::GetLocal, OpCode::SetLocal, local_pos as u8)
         } else {
             let index = self.identifier_constant(name)?;
@@ -671,7 +686,8 @@ impl From<i32> for Precedence {
 #[derive(Clone, Debug)]
 struct Local {
     name: String,
-    depth: i32
+    depth: i32,
+    initialized: bool
 }
 
 #[derive(Error, Clone, Debug)]
