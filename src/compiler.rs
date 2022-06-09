@@ -93,6 +93,8 @@ impl Compiler {
             self.end_scope()?;
         } else if self.matches(&TokenType::If) {
             self.if_statement()?;
+        } else if self.matches(&TokenType::While) {
+            self.while_statement()?;
         } else {
             self.expression_statement()?;
         }
@@ -122,6 +124,28 @@ impl Compiler {
         }
 
         self.writer.patch_jump_to_chunk_end(else_jump_addr)?;
+
+        Ok(())
+    }
+
+    fn while_statement(&mut self) -> Result<()> {
+        let loop_start = self.writer.len();
+
+        self.consume(&TokenType::LeftParen, "Expected '(' after 'while'.");
+        self.expression()?;
+        self.consume(&TokenType::RightParen, "Expected ')' after condition"); 
+
+
+        let line = self.prev()?.0.line;
+        let exit_jump_addr = self.writer.write_jump_if_false(line as i32);
+        self.writer.write_op_code(OpCode::Pop, line as i32); // Pops if expression result
+
+        self.statement()?;
+
+        self.writer.write_loop(loop_start, line as i32)?;
+
+        self.writer.patch_jump_to_chunk_end(exit_jump_addr)?;
+        self.writer.write_op_code(OpCode::Pop, line as i32); // Pops if expression result
 
         Ok(())
     }

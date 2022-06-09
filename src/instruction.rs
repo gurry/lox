@@ -60,6 +60,10 @@ impl InstructionWriter {
         self.chunk
     }
 
+    pub fn len(&self) -> usize {
+        self.chunk.len()
+    }
+
     pub fn write_const(&mut self, value: Value, src_line_number: i32) -> Result<usize> {
         let const_index = self.chunk.add_constant(value);
         if const_index > u8::MAX {
@@ -92,9 +96,22 @@ impl InstructionWriter {
         self.write_op_code_with_operands(OpCode::JumpIfFalse, 0xff,0xff, src_line_number)
     }
 
-
     pub fn write_jump(&mut self, src_line_number: i32) -> usize {
         self.write_op_code_with_operands(OpCode::Jump, 0xff,0xff, src_line_number)
+    }
+
+    pub fn write_loop(&mut self, loop_start_loc: usize, src_line_number: i32) -> Result<usize> {
+        let offset = self.chunk.len() - (loop_start_loc - 3);
+
+        if offset > usize::MAX {
+            bail!("Loop body too big ({})", offset);
+        }
+
+        let op1 = ((offset >> 8) & 0xff) as u8;
+        let op2 = (offset & 0xff) as u8;
+        let start = self.write_op_code_with_operands(OpCode::Loop, op1, op2, src_line_number);
+
+        Ok(start)
     }
 
     pub fn set_byte(&mut self, loc: usize, code_byte: u8) -> Result<()> {
@@ -116,7 +133,7 @@ impl InstructionWriter {
     pub fn patch_jump_to_chunk_end(&mut self, jmp_op_code_loc: usize) -> Result<()> {
         let relative_offset_to_current_chunk_end = self.chunk.len() - (jmp_op_code_loc + 3);
 
-        if relative_offset_to_current_chunk_end > u16::MAX as usize {
+        if relative_offset_to_current_chunk_end > usize::MAX {
             bail!("Jump too long ({})", relative_offset_to_current_chunk_end);
         }
 
@@ -165,7 +182,7 @@ impl<'a> InstructionReader<'a> {
                 self.ip += 1;
                 Instruction::unary(op_code, operand1)
             },
-            OpCode::Jump | OpCode::JumpIfFalse => {
+            OpCode::Jump | OpCode::JumpIfFalse | OpCode::Loop  => {
                 let operand1 = self.chunk.read(self.ip)?;
                 self.ip += 1;
                 let operand2 = self.chunk.read(self.ip)?;
@@ -195,6 +212,10 @@ impl<'a> InstructionReader<'a> {
     pub fn inc_ip(&mut self, inc: usize) -> Result<()> {
         self.set_ip(self.ip + inc)
     }
+
+    pub fn dec_ip(&mut self, dec: usize) -> Result<()> {
+        self.set_ip(self.ip - dec)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -222,7 +243,8 @@ pub enum OpCode {
     GetLocal,
     SetLocal,
     Jump,
-    JumpIfFalse
+    JumpIfFalse,
+    Loop
 }
 
 impl Into<u8> for OpCode {
@@ -235,7 +257,7 @@ impl TryFrom<u8> for OpCode {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value > OpCode::JumpIfFalse as u8 {
+        if value > OpCode::Loop as u8 {
             bail!("Unknown opcode {}", value);
         }
 

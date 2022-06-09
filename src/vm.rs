@@ -136,7 +136,11 @@ impl Vm {
                                 },
                                 _ => bail!("Can't jump. Non boolean value found on stack")
                             };
-                        }
+                        },
+                        OpCode::Loop => {
+                            let jmp_offset = Self::read_operands_as_usize(instruction)?;
+                            reader.dec_ip(jmp_offset)?;
+                        },
                     }
                 },
                 None => break
