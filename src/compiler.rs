@@ -170,6 +170,33 @@ impl Compiler {
         Ok(())
     }
 
+    fn and(&mut self, _can_assign: bool) -> Result<()> { 
+        let line = self.prev()?.0.line;
+        let end_jump_addr = self.writer.write_jump_if_false(line as i32);
+        self.writer.write_op_code(OpCode::Pop, line as i32); // Pops if expression result
+
+        self.parse_precedence(&Precedence::And)?;
+
+        self.writer.patch_jump_to_chunk_end(end_jump_addr)?;
+
+        Ok(())
+    }
+
+    fn or(&mut self, _can_assign: bool) -> Result<()> { 
+        let line = self.prev()?.0.line;
+        let else_jump_addr = self.writer.write_jump_if_false(line as i32);
+        let end_jump_addr = self.writer.write_jump(line as i32);
+
+        self.writer.patch_jump_to_chunk_end(else_jump_addr)?;
+        self.writer.write_op_code(OpCode::Pop, line as i32); // Pops if expression result
+
+        self.parse_precedence(&Precedence::Or)?;
+
+        self.writer.patch_jump_to_chunk_end(end_jump_addr)?;
+
+        Ok(())
+    }
+
     fn unary(&mut self, _can_assign: bool) -> Result<()> {
         let (prev_token, _) = self.prev()?;
         let operator_type = prev_token.token_type.clone();
@@ -597,7 +624,7 @@ impl Compiler {
         table.add(&TokenType::Number, Some(Self::number), None, Precedence::None);
 
 
-        table.add_null(&TokenType::And);
+        table.add(&TokenType::And, None, Some(Self::and), Precedence::And);
         table.add_null(&TokenType::Class);
         table.add_null(&TokenType::Else);
         table.add(&TokenType::False, Some(Self::literal), None, Precedence::None);
@@ -605,7 +632,7 @@ impl Compiler {
         table.add_null(&TokenType::For);
         table.add_null(&TokenType::If);
         table.add(&TokenType::Nil, Some(Self::literal), None, Precedence::None);
-        table.add_null(&TokenType::Or);
+        table.add(&TokenType::Or, None, Some(Self::or), Precedence::And);
         table.add_null(&TokenType::Print);
         table.add_null(&TokenType::Return);
         table.add_null(&TokenType::Super);
