@@ -108,12 +108,14 @@ impl Compiler {
 
         let line = self.prev()?.0.line;
         let if_jump_addr = self.writer.write_jump_if_false(line as i32);
+        self.writer.write_op_code(OpCode::Pop, line as i32); // Pops if expression result
 
         self.statement()?;
 
         let else_jump_addr = self.writer.write_jump(line as i32);
 
         self.writer.patch_jump_to_chunk_end(if_jump_addr)?;
+        self.writer.write_op_code(OpCode::Pop, line as i32); // Pops if expression result
 
         if self.matches(&TokenType::Else) {
             self.statement()?;
