@@ -46,9 +46,19 @@ impl Disassembler {
             | OpCode::GetGlobal | OpCode::SetGlobal
             | OpCode::GetLocal | OpCode::SetLocal => {
                 match instruction.operand1 {
-                    Some(index) => {
-                        let value = reader.get_const(index as usize)?;
-                        println!("{} {:04} '{}'", instruction.op_code, index, value)
+                    Some(operand1) => {
+                        print!("{} {:04}", instruction.op_code, operand1);
+
+                        match &instruction.op_code {
+                            OpCode::GetLocal | OpCode::SetLocal => {
+                                let stack_offset = format!("Stack[{}]", operand1);
+                                println!(" '{}'", stack_offset)
+                            }
+                            _ => {
+                                let value = reader.get_const(operand1 as usize)?;
+                                println!(" '{}'", value)
+                            }
+                        }
                     }
                     _ => bail!("Opcode {} has no operand", instruction.op_code),
                 }
